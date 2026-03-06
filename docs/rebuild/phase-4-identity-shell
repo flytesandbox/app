@@ -1,0 +1,5 @@
+Clerk owns: sign-in, sign-up, session creation, session cookies/tokens, MFA, identity proof.
+
+Your app owns: route protection, backend verification of every protected request, normalized identity object, later authorization rules.
+
+This step does not include: roles, tenant scoping, admin permissions, record-level access rules.
