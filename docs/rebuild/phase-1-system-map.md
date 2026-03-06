@@ -314,3 +314,93 @@ Phase 2 must define:
 - environment separation rules
 
 Phase 2 will be the first phase that turns your current server + DNS situation into a concrete deployment layout.
+
+## Required controls baseline
+
+The following controls are required for this rebuild and are now part of the Phase 1 source of truth:
+
+- Access control
+- Encryption
+- Audit logging
+- Backup and restore
+- Incident response
+- Change management
+- Vulnerability management
+- Vendor management
+- Least privilege
+
+These controls are not optional future add-ons.
+They are part of the operating model and must be implemented in later phases.
+
+## Phase 1 exit answers
+
+### What data is regulated?
+Regulated data includes:
+- employer application data
+- contact PII
+- uploaded documents
+- benefits/insurance-related submission data
+- any future PHI-bearing data
+
+### Where can that data live?
+Regulated data may live only in approved system paths:
+- production application services
+- production database/storage
+- approved backup paths
+- approved vendor paths that are intentionally allowed
+
+Regulated data may not be stored in:
+- local development
+- casual test files
+- repo contents
+- CI logs
+- unmanaged third-party tools
+
+### Which vendors require a BAA or equivalent review?
+Any vendor that stores, processes, routes, or can access regulated production data must be reviewed before use.
+
+Expected review candidates:
+- hosting/server provider
+- auth provider
+- database/storage provider
+- backup provider
+- observability/logging provider
+- email provider if it handles regulated content
+
+### Which environments may contain real PHI?
+- Local/dev: no
+- Staging: no, unless explicitly approved and governed
+- Production: yes
+
+### Which logs may never contain PHI?
+The following must never appear in logs:
+- PHI payloads
+- full tokens
+- passwords
+- session secrets
+- raw authorization headers
+
+## Phase 1 completion status
+
+Phase 1 is complete when:
+- the system boundary is defined
+- users and roles are defined
+- tenant model is defined
+- services and data zones are defined
+- third parties are identified
+- regulated data rules are defined
+- exit answers above are present in this file
+
+## Next phase handoff
+
+Next is Phase 2 — Environment map.
+
+Phase 2 will define:
+- local
+- staging
+- production
+- hostnames
+- DNS usage
+- deploy paths
+- secret sources
+- environment separation rules
