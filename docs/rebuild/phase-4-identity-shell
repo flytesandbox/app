@@ -582,3 +582,17 @@ Not tested right now
 - tenant/resource isolation
 - object-level access rules
 - full business workflow behavior
+
+Phase 4 validation scorecard
+
+1. Clerk is integrated in the web shell: PASS / FAIL / NOT TESTED
+2. sign-in works: PASS / FAIL / NOT TESTED
+3. sign-up works: PASS / FAIL / NOT TESTED
+4. sign-out works: PASS / FAIL / NOT TESTED
+5. /app is protected: PASS / FAIL / NOT TESTED
+6. internal/admin shell is protected: PASS / FAIL / NOT TESTED
+7. backend request verification is implemented: PASS / FAIL / NOT TESTED
+8. startup validation is implemented: PASS / FAIL / NOT TESTED
+9. local proof test passed: PASS / FAIL / NOT TESTED
+10. staging proof test passed: PASS / FAIL / NOT TESTED
+11. no Phase 5 authorization logic leaked in: PASS / FAIL / NOT TESTED
