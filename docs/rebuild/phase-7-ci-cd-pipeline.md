@@ -287,3 +287,5 @@ Decisions locked:
 - Playwright remains advisory until deterministic and consistently green
 - each DB job starts its own fresh MySQL service container
 - `db-check` reruns migrations because service-container state does not persist across jobs
+
+PR smoke validation branch created to verify Phase 7 pull request checks.
