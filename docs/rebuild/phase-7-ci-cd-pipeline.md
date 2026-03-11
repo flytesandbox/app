@@ -289,3 +289,39 @@ Decisions locked:
 - `db-check` reruns migrations because service-container state does not persist across jobs
 
 PR smoke validation branch created to verify Phase 7 pull request checks.
+
+## Step 9 - PR validation findings and narrow-scope fix
+
+Observed during PR validation:
+- GitHub Actions PR run surfaced MySQL service-container warnings:
+  - `root@localhost is created with an empty password`
+  - `CA certificate ca.pem is self signed`
+  - `Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users`
+- GitHub Actions `db:migrate` failed with:
+  - `Error: Table 'schema_migrations' already exists`
+
+Decision:
+- For Step 9, only blocking failures that prevent PR validation from completing are in scope.
+- The MySQL warnings above are recorded for later review but are not treated as the current Step 9 blocker because they come from the ephemeral CI MySQL service container, not the staging or production database posture.
+- The actual Step 9 blocker is the migration bootstrap conflict where the migration runner creates `schema_migrations` and `0001_phase6_baseline.sql` also attempts to create `schema_migrations`.
+
+Root cause locked:
+- `web/scripts/db-migrate.mjs` owns creation of the migration ledger table.
+- `web/db/migrations/0001_phase6_baseline.sql` must not create `schema_migrations`.
+
+Step 9 corrective action:
+- Remove `schema_migrations` creation from `web/db/migrations/0001_phase6_baseline.sql`.
+- Keep the migration runner as the single owner of migration ledger bootstrapping.
+- Re-run PR validation after the fix.
+
+Deferred follow-up queue after Phase 7 critical path:
+- Review whether the CI MySQL service container should be hardened further or left as-is for disposable PR validation.
+- Reassess Playwright warnings/failures only if they block Phase 7 exit criteria.
+- Keep Step 9 scope narrow: PR validation first, then merge-to-main staging deploy flow.
+
+Step 9 expected pass condition after fix:
+- `lint` passes
+- `build` passes
+- `db:migrate` passes
+- `db:check` passes
+- Playwright remains advisory unless explicitly promoted to required later
