@@ -1,0 +1,17 @@
+node_modules
+.next
+.next-phase7
+coverage
+playwright-report
+test-results
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.*
+.git
+.gitignore
+Dockerfile*
+README*
+.env.container.local

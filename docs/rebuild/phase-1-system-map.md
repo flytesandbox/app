@@ -1,0 +1,445 @@
+# Phase 1 — System Map
+
+## Goal
+Lock the system boundary for the rebuild before any environment or server setup work.
+
+## Current starting point
+- One Linode server exists.
+- DNS records already point to that server.
+- No locked staging deployment contract exists yet.
+- No locked environment map exists yet.
+- No locked secrets contract exists yet for the rebuild.
+- No locked private MySQL runtime exists yet for the rebuild.
+
+## Exact deliverables
+This phase defines:
+- users
+- roles
+- tenant model
+- services
+- databases/data zones
+- third parties
+- regulated data
+- system boundaries
+- shared responsibility
+- explicit out-of-scope items
+
+## Source-of-truth decisions
+
+### 1) Rebuild target overrides legacy repo assumptions
+The old repo contains useful lessons, but it is not the architecture truth for the rebuild.
+
+Do not let these legacy assumptions drive the new build:
+- Postgres as the final DB default
+- OIDC as the final auth default
+- Nginx as the final edge/proxy default
+
+The rebuild target is:
+- Traefik at the edge
+- Clerk for authentication
+- backend-enforced authorization
+- MySQL private only
+- GitHub-driven CI/CD
+- local, staging, and production as separate environments
+
+### 2) Product scope for this rebuild
+This app has two primary experiences:
+
+#### External tenant experience
+A tenant-facing ICHRA setup flow that allows:
+- multi-step application entry
+- save and resume
+- file upload
+- review before submit
+- final submission
+
+#### Current supported external tenant types:
+- employer
+- advisor
+- individual
+
+#### Internal experience
+An internal/admin review flow that allows:
+- secure sign-in
+- review of submitted applications
+- detail inspection
+- file review
+- processing actions by authorized staff
+
+Future tenant hierarchy may exist later, but it is not active in the current build.
+
+### 3) Users
+The system will support these user types:
+
+- External employer user
+  - tenant-scoped user acting inside an employer tenant
+- External advisor user
+  - tenant-scoped user acting inside an advisor tenant
+- External individual user
+  - tenant-scoped user acting inside an individual tenant
+- Internal operations admin
+  - staff handling operational processing and support
+- Internal reviewer
+  - staff handling review workflows
+- Platform admin
+  - higher-trust internal user for platform-wide access and oversight
+- Read-only auditor
+  - non-operational internal reviewer
+- Service account
+  - CI/CD and controlled automation identity
+
+### 4) Roles
+Initial role model for the rebuild:
+
+- `platform_admin`
+- `internal_ops_admin`
+- `internal_reviewer`
+- `read_only_auditor`
+- `service_account`
+
+External tenant-scoped roles exist per tenant type and are finalized in Phase 5.
+
+#### Rules:
+- Clerk authenticates users.
+- Clerk is not the final source of truth for authorization.
+- The backend must enforce:
+  - role permissions
+  - tenant boundaries
+  - resource ownership
+  - action-level checks
+
+### 5) Tenant model
+Initial tenant boundary:
+
+- one Clerk Organization = one tenant boundary
+
+#### Current supported tenant types:
+- employer
+- advisor
+- individual
+
+#### Reserved future tenant types:
+- firm
+- partner
+
+#### Rules:
+- each tenant-owned record belongs to exactly one tenant
+- every protected read/write must resolve the active tenant
+- internal users may cross tenant boundaries only through backend-enforced role/scope rules
+- tenant users may never cross tenant boundaries
+- public save/resume access, if allowed, is constrained to a single application context until authenticated tenant scope is resolved
+- tenant isolation is enforced in backend logic and data access rules
+- no PHI goes into Clerk metadata
+
+#### Future-compatibility rule:
+- hierarchy may exist later, but no parent-child inheritance rules are active in the current build
+
+### 6) Services
+The rebuild uses these core services:
+
+#### Edge
+- Traefik
+- HTTPS redirect
+- TLS termination
+- routing by host/path
+- security middleware
+- rate limiting
+- admin path restrictions later
+
+#### App tier
+- web application
+- API service
+- optional worker/background job service
+
+#### Identity
+- Clerk for sign-in/session/authentication
+
+#### Data tier
+- MySQL private only
+- separate environment-specific databases
+- audit/event storage pattern
+- uploaded file storage path to be finalized in a later phase
+
+#### Delivery/control tier
+- GitHub
+- GitHub Actions
+- container registry
+- environment-specific deploy credentials
+
+### 7) Data zones
+Use a 3-zone data model:
+
+#### External application data zone
+- tenant-facing application data
+- application records
+- workflow state tied to applicant submissions
+
+#### Internal operations data zone
+- admin workflow metadata
+- support notes
+- internal processing state
+
+#### Audit/event zone
+- auth events
+- role changes
+- exports/downloads
+- sensitive actions
+- deployment events
+- security events
+
+### 8) Data classification
+All system data must be classified into one of these classes:
+
+#### Public
+- public app shell
+- static assets
+- public route content with no applicant data
+
+#### Internal
+- operational docs
+- deployment runbooks
+- non-secret architecture docs
+
+#### Sensitive
+- secrets
+- deploy credentials
+- SSH material
+- DB credentials
+- saved-link tokens
+- internal admin metadata
+
+#### Regulated
+- application payloads
+- applicant and contact PII
+- uploaded documents
+- insurance/benefits-related data
+- any future PHI-bearing data
+
+### 9) Environment data rules
+- Local/dev: fake or test-safe data only
+- Staging: production-like architecture, but no real PHI unless explicitly approved and governed
+- Production: only environment intended for real regulated data
+
+### 10) Logs must never contain
+- PHI payloads
+- full tokens
+- passwords
+- session secrets
+- raw authorization headers
+
+### 11) Third parties in scope
+Third parties in scope for this rebuild:
+- Linode
+- GitHub
+- GitHub Actions / registry
+- Clerk
+- DNS provider
+- WinSCP
+- VS Code
+- Codex
+- future email provider
+- future backup/storage provider
+- future observability provider
+
+### 12) Vendor review boundary
+Treat vendors in two groups:
+
+#### PHI-path vendors
+Any vendor that stores, processes, routes, or can access regulated production data must be reviewed before production use.
+
+Expected PHI-path vendor categories:
+- hosting/server provider
+- auth provider
+- database/storage provider
+- email provider if notifications include regulated data
+- backup provider
+- observability/logging provider if regulated data could reach it
+
+#### Non-PHI-path vendors
+These may be in the delivery toolchain without holding regulated application data:
+- GitHub source control
+- local editor/tools
+- CI orchestration only
+- DNS management only
+
+Rule:
+No PHI is allowed into a vendor path until that path is intentionally approved.
+
+### 13) Shared responsibility matrix
+
+#### Clerk handles
+- authentication
+- user/session lifecycle
+- MFA capabilities
+- token issuance
+
+#### Server/cloud layer handles
+- VM/network boundary
+- OS posture
+- storage/compute availability
+- host access controls
+- private network posture
+
+#### App layer handles
+- authorization
+- tenant isolation
+- resource ownership checks
+- request validation
+- audit events
+- logging redaction
+- business rules
+- controlled access to regulated data
+
+#### CI/CD layer handles
+- build
+- artifact publication
+- deployment
+- environment-scoped secret injection
+
+Rule:
+CI/CD must never become a storage path for regulated data.
+
+### 14) Network/system boundary
+- Public internet reaches Traefik only
+- App services sit behind Traefik
+- Database is private only
+- No direct database exposure to the internet
+- Admin operations require authenticated backend checks
+- Internal-only services are not directly public
+
+### 15) Explicit out-of-scope items for Phase 1
+Not part of this phase:
+- server hardening
+- Traefik installation
+- TLS setup
+- Clerk installation
+- MySQL installation
+- CI/CD setup
+- feature rebuild
+- production deployment
+- active firm hierarchy behavior
+- active partner hierarchy behavior
+- inherited permissions across parent/child tenants
+- partner-specific domain routing
+- partner-specific server isolation
+
+## Pass / fail exit criteria
+
+Phase 1 passes only if all of these are answered:
+- What data is regulated?
+- Where can that data live?
+- Which vendors are in scope for regulated-data review?
+- Which environments may contain real PHI?
+- Which logs may never contain PHI?
+- What are the system users?
+- What are the internal roles?
+- What are the current external tenant types?
+- What is the tenant boundary?
+- Which future tenant types are only reserved, not active?
+- What services exist?
+- What is explicitly out of scope right now?
+
+## Next phase handoff
+Phase 2 is the environment map.
+
+Phase 2 must define:
+- local
+- staging
+- production
+- hostnames
+- DNS usage
+- deploy paths
+- secret sources
+- environment separation rules
+
+Phase 2 will be the first phase that turns your current server + DNS situation into a concrete deployment layout.
+
+## Required controls baseline
+
+The following controls are required for this rebuild and are now part of the Phase 1 source of truth:
+
+- Access control
+- Encryption
+- Audit logging
+- Backup and restore
+- Incident response
+- Change management
+- Vulnerability management
+- Vendor management
+- Least privilege
+
+These controls are not optional future add-ons.
+They are part of the operating model and must be implemented in later phases.
+
+## Phase 1 exit answers
+
+### What data is regulated?
+Regulated data includes:
+- employer application data
+- contact PII
+- uploaded documents
+- benefits/insurance-related submission data
+- any future PHI-bearing data
+
+### Where can that data live?
+Regulated data may live only in approved system paths:
+- production application services
+- production database/storage
+- approved backup paths
+- approved vendor paths that are intentionally allowed
+
+Regulated data may not be stored in:
+- local development
+- casual test files
+- repo contents
+- CI logs
+- unmanaged third-party tools
+
+### Which vendors require a BAA or equivalent review?
+Any vendor that stores, processes, routes, or can access regulated production data must be reviewed before use.
+
+Expected review candidates:
+- hosting/server provider
+- auth provider
+- database/storage provider
+- backup provider
+- observability/logging provider
+- email provider if it handles regulated content
+
+### Which environments may contain real PHI?
+- Local/dev: no
+- Staging: no, unless explicitly approved and governed
+- Production: yes
+
+### Which logs may never contain PHI?
+The following must never appear in logs:
+- PHI payloads
+- full tokens
+- passwords
+- session secrets
+- raw authorization headers
+
+## Phase 1 completion status
+
+Phase 1 is complete when:
+- the system boundary is defined
+- users and roles are defined
+- tenant model is defined
+- services and data zones are defined
+- third parties are identified
+- regulated data rules are defined
+- exit answers above are present in this file
+
+## Next phase handoff
+
+Next is Phase 2 — Environment map.
+
+Phase 2 will define:
+- local
+- staging
+- production
+- hostnames
+- DNS usage
+- deploy paths
+- secret sources
+- environment separation rules
