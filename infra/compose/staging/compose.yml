@@ -1,0 +1,28 @@
+services:
+  web:
+    image: ${IMAGE_NAME}:${IMAGE_TAG}
+    container_name: app-staging-web
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - ${APP_RUNTIME_ENV_FILE}
+    networks:
+      - edge
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${EDGE_NETWORK}
+      - traefik.http.routers.app-staging-web.rule=Host(`${STAGING_WEB_HOST}`)
+      - traefik.http.routers.app-staging-web.entrypoints=websecure
+      - traefik.http.routers.app-staging-web.tls=true
+      - traefik.http.services.app-staging-web.loadbalancer.server.port=${APP_INTERNAL_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_INTERNAL_PORT}/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  edge:
+    name: ${EDGE_NETWORK}
+    external: true
