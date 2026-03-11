@@ -325,3 +325,94 @@ Step 9 expected pass condition after fix:
 - `db:migrate` passes
 - `db:check` passes
 - Playwright remains advisory unless explicitly promoted to required later
+
+Step 9 Complete
+
+One guardrail passed:
+
+Merged Step 10 because Step 9 fix PR is green and merged.
+
+image pull
+
+migration run
+
+service restart
+
+/api/health
+
+/api/ready
+
+
+## Step 10 - Staging deploy workflow
+
+Created:
+- `.github/workflows/deploy-staging.yml`
+
+Triggers:
+- push to `main`
+- manual dispatch
+
+Environment:
+- `staging`
+
+Permissions:
+- `contents: read`
+- `packages: write`
+
+Deploy rail locked:
+- checkout repo
+- authenticate to GHCR
+- build the web image from `web/Dockerfile`
+- tag image with commit SHA
+- push image to GHCR
+- generate staging runtime `.env` from GitHub environment vars/secrets
+- generate staging `compose.env` with the target image tag
+- generate release metadata file for transfer
+- copy `compose.yml`, `.env`, `compose.env`, and `release.env` to the staging server
+- execute `/app/staging/deploy_remote.sh` over SSH
+
+Decision:
+- the workflow does not replace the remote deploy script
+- `deploy_remote.sh` remains the single authority for:
+  - explicit DB migration execution
+  - compose pull/up
+  - `/api/health` probe
+  - `/api/ready` probe
+  - release metadata finalization
+
+Expected pass behavior:
+- workflow fails if image build/push fails
+- workflow fails if remote migration fails
+- workflow fails if remote health/readiness checks fail
+- successful deploy results in a new staging image tag equal to the commit SHA
+
+Environment contract used by Step 10:
+Variables:
+- `APP_ENV`
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_URL`
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL`
+- `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`
+- `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL`
+- `CLERK_AUTHORIZED_PARTIES`
+- `DATABASE_ENABLED`
+- `DB_SSL_REQUIRED`
+- `DB_POOL_LIMIT`
+- `REGISTRY`
+- `IMAGE_NAME`
+- `STAGING_DEPLOY_PATH`
+- `STAGING_WEB_HOST`
+
+Secrets:
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_JWT_KEY`
+- `STAGING_DATABASE_URL`
+- `STAGING_DATABASE_MIGRATION_URL`
+- `STAGING_SSH_PRIVATE_KEY`
+- `STAGING_SSH_KNOWN_HOSTS`
+- `STAGING_SSH_USER`
+- `STAGING_SSH_HOST`
+- `STAGING_SSH_PORT`
