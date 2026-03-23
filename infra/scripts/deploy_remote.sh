@@ -30,7 +30,7 @@ require_file() {
 }
 
 compose() {
-  docker compose -f "$COMPOSE_FILE" "$@"
+  docker compose --project-directory "$APP_ROOT" -f "$COMPOSE_FILE" "$@"
 }
 
 env_get() {
@@ -106,11 +106,26 @@ load_compose_env() {
   set +a
 }
 
+resolve_app_root_path() {
+  local path="$1"
+
+  case "$path" in
+    /*)
+      printf '%s\n' "$path"
+      ;;
+    ./*)
+      printf '%s/%s\n' "$APP_ROOT" "${path#./}"
+      ;;
+    *)
+      printf '%s/%s\n' "$APP_ROOT" "$path"
+      ;;
+  esac
+}
+
 resolve_runtime_env_file() {
-  local runtime_env_file="${APP_RUNTIME_ENV_FILE:-$DEFAULT_RUNTIME_ENV_FILE}"
-  require_file "$runtime_env_file"
-  APP_RUNTIME_ENV_FILE="$runtime_env_file"
-  export APP_RUNTIME_ENV_FILE
+  local configured_runtime_env_file="${APP_RUNTIME_ENV_FILE:-$DEFAULT_RUNTIME_ENV_FILE}"
+  RUNTIME_ENV_FILE="$(resolve_app_root_path "$configured_runtime_env_file")"
+  require_file "$RUNTIME_ENV_FILE"
 }
 
 ghcr_login_if_needed() {
@@ -186,7 +201,6 @@ trap 'rc=$?; trap - EXIT; cleanup "$rc"; exit "$rc"' EXIT
 
 load_compose_env
 resolve_runtime_env_file
-RUNTIME_ENV_FILE="$APP_RUNTIME_ENV_FILE"
 DATABASE_ENABLED="$(parse_boolean "DATABASE_ENABLED" "$(env_get "DATABASE_ENABLED" "$RUNTIME_ENV_FILE")")"
 
 CURRENT_TAG="${IMAGE_TAG:-}"

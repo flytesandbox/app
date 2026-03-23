@@ -219,7 +219,7 @@ Final result for Step 6:
 Correction applied:
 - runtime env file path was parameterized for local validation
 - local validation used repo placeholder runtime env
-- real staging deploy will point `APP_RUNTIME_ENV_FILE` to `/app/staging/.env`
+- real staging deploy now points `APP_RUNTIME_ENV_FILE` to `.env` relative to `/app/staging`
 
 Step 7 progress:
 - remote deploy and rollback scripts uploaded to `/app/staging`

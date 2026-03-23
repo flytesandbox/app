@@ -103,3 +103,36 @@
 - Detail: Added runtime env resolution helper logic so APP_RUNTIME_ENV_FILE is validated once, exported explicitly, and reused for compose pull/up plus the explicit migration step.
 - Detail: Updated cleanup and rollback flows to reload restored compose.env values before recreating services, and synced IMAGE_TAG in-process after compose.env tag updates.
 
+
+### 2026-03-23T18:11:39Z | discovery | Confirmed current deploy failure occurs on already-patched commit be7b99c
+- Status: captured
+- Detail: Git history shows origin/main and HEAD at be7b99c (debug db error), so the repeated staging failure is not a rerun of the pre-fix workflow.
+- Detail: Current tree already includes the follow-up deploy_remote.sh and rollback_remote.sh changes intended to resolve APP_RUNTIME_ENV_FILE handling during docker compose up.
+
+
+### 2026-03-23T18:14:20Z | discovery | Relative runtime env path with explicit Compose project directory resolves cleanly
+- Status: captured
+- Detail: Local docker compose config succeeds when APP_RUNTIME_ENV_FILE is provided via exported environment instead of --env-file, confirming the prior patch narrowed the problem but not the remaining server failure.
+- Detail: Local docker compose config also succeeds with APP_RUNTIME_ENV_FILE set to a relative path and --project-directory pinned to the staging directory, which removes ambiguity about where Compose should resolve the runtime env file.
+
+
+### 2026-03-23T18:16:09Z | manual-action | Operator rerun required for staging deploy validation
+- Status: captured
+- Detail: Push the current branch and rerun the GitHub Deploy Staging workflow on commit be7b99c successor containing the relative APP_RUNTIME_ENV_FILE patch.
+- Detail: If the rerun still fails, capture the full remote deploy section including any new lines immediately before and after docker compose up so the remaining server-side state can be isolated.
+
+
+### 2026-03-23T18:16:09Z | change | Hardened staging compose runtime env resolution to use deploy-root-relative paths
+- Status: captured
+- Detail: Updated deploy-staging workflow generation so staging compose.env now writes APP_RUNTIME_ENV_FILE=.env instead of an absolute server path.
+- Detail: Patched deploy_remote.sh and rollback_remote.sh to pin docker compose to --project-directory APP_ROOT and resolve runtime env files relative to APP_ROOT for script-side validation and migration execution.
+- Detail: Updated staging example/config docs to reflect that real staging now uses .env relative to /app/staging instead of embedding an absolute path in compose.env.
+
+
+### 2026-03-23T18:16:09Z | verify | Repo-side validation passed for relative runtime env path hardening
+- Status: captured
+- Detail: docker compose config succeeded with APP_RUNTIME_ENV_FILE=.env when --project-directory was pinned to a staging-shaped directory, confirming the relative server path model resolves cleanly.
+- Detail: docker compose config also still succeeded for the local placeholder validation path ./runtime.env.example under the compose example directory.
+- Detail: git diff --check reported only expected Windows CRLF conversion warnings and no whitespace errors.
+- Detail: Git Bash syntax checks could not complete in this host sandbox because bash.exe failed creating its Windows signal resources, so shell-script verification is limited to manual diff review plus the compose resolution checks above.
+
