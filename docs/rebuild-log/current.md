@@ -136,3 +136,15 @@
 - Detail: git diff --check reported only expected Windows CRLF conversion warnings and no whitespace errors.
 - Detail: Git Bash syntax checks could not complete in this host sandbox because bash.exe failed creating its Windows signal resources, so shell-script verification is limited to manual diff review plus the compose resolution checks above.
 
+
+### 2026-03-23T18:27:12Z | request | Review recent staging deploy tasks after Action stalled at remote health probe
+- Status: Review scope is the last few Phase 7 staging deploy fixes to verify they still align with the goal of a successful staging CI deploy while DATABASE_ENABLED=false.
+- Detail: User reported the GitHub Action reached deploy_remote.sh, recreated the container, and stalled after '[deploy] probing /api/health'.
+
+
+### 2026-03-23T18:28:23Z | request | User prompts summary: staging deploy probe stall review
+- Status: captured
+- Detail: User reported the GitHub staging deploy now reaches remote service recreation and then stalls during the health-probe stage.
+- Detail: User asked for a review of the most recent staging deploy tasks to confirm the work is still aligned with the Phase 7 goal.
+- Detail: User later provided a curl timeout on port 443 and requested a short, high-level change-log update summarizing these prompts.
+
