@@ -372,3 +372,28 @@ Updated backup command shape:
 ```bash
 mysqldump --single-transaction --routines --triggers --no-tablespaces \
   -h "$DB_HOST" -u "$BACKUP_USER" -p"$BACKUP_PASSWORD" "$DB_NAME" > "$BACKUP_FILE"
+```
+
+## Recovery audit - 2026-03-23
+
+Observed during the Phase 7 staging deploy recovery:
+
+- the repo notes marked the staging DB bring-up as complete
+- the actual staging host did not yet have `/app/staging/db`
+- Phase 7 therefore reached the remote server correctly but failed once it attempted the explicit DB migration rail
+
+Decision:
+
+- Phase 6 remains the owning phase for staging DB bring-up
+- Phase 7 should not fake DB completion with placeholder credentials
+- until the real staging DB exists, staging deploy must be allowed to run with `DATABASE_ENABLED=false`
+
+Operational correction:
+
+- treat the current server as a rails-first staging environment, not a DB-complete staging environment
+- keep Phase 6 open operationally until `/app/staging/db` exists and the staging DB stack is actually provisioned
+- once the DB stack exists, populate the GitHub `staging` secrets:
+  - `STAGING_DATABASE_URL`
+  - `STAGING_DATABASE_MIGRATION_URL`
+  - `STAGING_DATABASE_BACKUP_URL`
+- only switch GitHub `staging` `DATABASE_ENABLED=true` after those real values exist

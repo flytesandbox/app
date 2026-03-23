@@ -39,6 +39,26 @@ env_get() {
   awk -F= -v key="$key" '$1 == key { print substr($0, length($1) + 2); exit }' "$file"
 }
 
+parse_boolean() {
+  local name="$1"
+  local value="${2:-}"
+  local normalized
+  normalized="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+
+  case "$normalized" in
+    1|true|yes|on)
+      printf 'true'
+      ;;
+    0|false|no|off|'')
+      printf 'false'
+      ;;
+    *)
+      echo "[deploy] $name must be one of: 1, true, yes, on, 0, false, no, off" >&2
+      exit 1
+      ;;
+  esac
+}
+
 env_upsert() {
   local key="$1"
   local value="$2"
@@ -159,6 +179,7 @@ load_compose_env
 
 RUNTIME_ENV_FILE="${APP_RUNTIME_ENV_FILE:-$DEFAULT_RUNTIME_ENV_FILE}"
 require_file "$RUNTIME_ENV_FILE"
+DATABASE_ENABLED="$(parse_boolean "DATABASE_ENABLED" "$(env_get "DATABASE_ENABLED" "$RUNTIME_ENV_FILE")")"
 
 CURRENT_TAG="${IMAGE_TAG:-}"
 if [ -z "${IMAGE_NAME:-}" ]; then
@@ -180,8 +201,12 @@ env_upsert "IMAGE_TAG" "$TARGET_TAG" "$COMPOSE_ENV_FILE"
 echo "[deploy] pulling target image"
 compose pull "$SERVICE_NAME"
 
-echo "[deploy] running explicit migration step"
-docker run --rm --env-file "$RUNTIME_ENV_FILE" "${IMAGE_NAME}:${TARGET_TAG}" node ./scripts/db-migrate.mjs
+if [ "$DATABASE_ENABLED" = "true" ]; then
+  echo "[deploy] running explicit migration step"
+  docker run --rm --env-file "$RUNTIME_ENV_FILE" "${IMAGE_NAME}:${TARGET_TAG}" node ./scripts/db-migrate.mjs
+else
+  echo "[deploy] DATABASE_ENABLED=false; skipping explicit migration step"
+fi
 
 echo "[deploy] recreating service"
 compose up -d "$SERVICE_NAME"

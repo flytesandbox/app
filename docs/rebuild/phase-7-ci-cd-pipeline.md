@@ -416,3 +416,42 @@ Secrets:
 - `STAGING_SSH_USER`
 - `STAGING_SSH_HOST`
 - `STAGING_SSH_PORT`
+
+DB-mode clarification:
+- `STAGING_DATABASE_URL` and `STAGING_DATABASE_MIGRATION_URL` are required only when `DATABASE_ENABLED=true`
+
+## Recovery update - 2026-03-23
+
+Observed during live staging recovery:
+
+- SSH transport issues were resolved first by refreshing `STAGING_SSH_KNOWN_HOSTS` and `STAGING_SSH_PRIVATE_KEY`
+- the deploy then reached the staging host and pulled the target image successfully
+- the next failure happened in the explicit migration step because the real Phase 6 staging DB had not actually been stood up on the server yet
+
+Decision:
+
+- preserve the phase boundary: staging DB bring-up is still Phase 6 work
+- Phase 7 must still be able to validate CI publish, SSH transport, remote script copy, compose update, service restart, and readiness probes while `DATABASE_ENABLED=false`
+- explicit DB migration remains required only when `DATABASE_ENABLED=true`
+
+Deploy rail correction:
+
+- `deploy_remote.sh` now reads `DATABASE_ENABLED` from the transferred runtime env file
+- when `DATABASE_ENABLED=true`, the remote deploy still runs `node ./scripts/db-migrate.mjs`
+- when `DATABASE_ENABLED=false`, the remote deploy skips the explicit migration step and continues with service recreation plus probes
+- the GitHub staging workflow now validates DB URL secrets only when `DATABASE_ENABLED=true`
+
+Temporary pass condition until Phase 6 closeout:
+
+- staging deploy succeeds with `DATABASE_ENABLED=false`
+- `/api/health` returns `200`
+- `/api/ready` returns `200` with database check `skipped`
+- no placeholder or invented DB credentials are stored in GitHub secrets
+
+Phase 6 handoff required before re-enabling DB mode:
+
+- create `/app/staging/db`
+- stand up the staging MySQL stack
+- create the runtime, migrate, and backup users
+- store the real DB URLs in GitHub `staging` secrets
+- switch GitHub `staging` `DATABASE_ENABLED=true`

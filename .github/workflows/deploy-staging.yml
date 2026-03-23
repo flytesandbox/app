@@ -61,6 +61,49 @@ jobs:
 
           echo "FULL_IMAGE_NAME=${REGISTRY}/${IMAGE_NAME}" >> "$GITHUB_ENV"
           echo "Using image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+      - name: Validate staging DB mode and URLs
+        env:
+          DATABASE_ENABLED: ${{ vars.DATABASE_ENABLED }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_DATABASE_MIGRATION_URL: ${{ secrets.STAGING_DATABASE_MIGRATION_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          def parse_bool(name: str) -> bool:
+              value = os.environ.get(name, "").strip().lower()
+              if value in {"1", "true", "yes", "on"}:
+                  return True
+              if value in {"0", "false", "no", "off"}:
+                  return False
+              raise SystemExit(
+                  f"GitHub staging variable {name} must be one of: 1, true, yes, on, 0, false, no, off"
+              )
+
+          def validate_mysql_url(name: str) -> None:
+              value = os.environ.get(name, "").strip()
+              if not value:
+                  raise SystemExit(
+                      f"GitHub staging secret {name} is required when DATABASE_ENABLED=true"
+                  )
+
+              parsed = urlparse(value)
+              if parsed.scheme != "mysql":
+                  raise SystemExit(f"GitHub staging secret {name} must use mysql://")
+              if not parsed.hostname:
+                  raise SystemExit(f"GitHub staging secret {name} must include a hostname")
+              if parsed.path in {"", "/"}:
+                  raise SystemExit(f"GitHub staging secret {name} must include a database name")
+
+          if parse_bool("DATABASE_ENABLED"):
+              validate_mysql_url("STAGING_DATABASE_URL")
+              validate_mysql_url("STAGING_DATABASE_MIGRATION_URL")
+              print("DATABASE_ENABLED=true; staging DB URLs validated.")
+          else:
+              print("DATABASE_ENABLED=false; skipping staging DB URL validation.")
+          PY
       
       - name: Build and push image
         uses: docker/build-push-action@v6
