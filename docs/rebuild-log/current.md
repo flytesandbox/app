@@ -77,3 +77,29 @@
 - Detail: Re-run Deploy Staging to validate the rails-only path: image publish, SSH transport, remote script copy, service recreation, and readiness probes.
 - Detail: After Phase 6 server DB bring-up is complete, create real STAGING_DATABASE_URL and STAGING_DATABASE_MIGRATION_URL secrets and then switch DATABASE_ENABLED=true.
 
+
+### 2026-03-23T18:02:01Z | request | Investigate repeated staging deploy failure after prior Phase 7 fix
+- Status: captured
+- Detail: Reviewed GitHub Actions failure showing remote docker compose recreate stops because the staging compose env file path resolves to a missing server-side .env.
+
+
+### 2026-03-23T18:05:23Z | verify | Validated narrowed Phase 7 script fix
+- Status: captured
+- Detail: git diff shows only infra/scripts/deploy_remote.sh and infra/scripts/rollback_remote.sh changed for this follow-up fix.
+- Detail: git diff --check reported only expected CRLF warnings in this Windows worktree and no whitespace errors.
+- Detail: Git Bash parsed infra/scripts/deploy_remote.sh successfully with -n; parsing infra/scripts/rollback_remote.sh hit the repo's known Windows signal-pipe host issue, so rollback validation is based on manual diff symmetry with the deploy script plus matching structural changes.
+
+
+### 2026-03-23T18:05:38Z | discovery | Compose env file mismatch isolated in remote staging deploy
+- Status: captured
+- Detail: The prior Phase 7 recovery commit on 2026-03-23 gated only the explicit migration rail when DATABASE_ENABLED=false.
+- Detail: Current deploy_remote.sh required the runtime env file successfully before compose up, which means the server-side .env existed when the script checked it.
+- Detail: The later docker compose up failure therefore points to Compose resolving APP_RUNTIME_ENV_FILE differently from the shell by re-reading compose.env rather than using the already-resolved exported environment.
+
+
+### 2026-03-23T18:05:44Z | change | Patched remote deploy and rollback scripts to use one resolved Compose environment
+- Status: captured
+- Detail: Updated infra/scripts/deploy_remote.sh so docker compose inherits exported variables from load_compose_env instead of re-reading compose.env via --env-file.
+- Detail: Added runtime env resolution helper logic so APP_RUNTIME_ENV_FILE is validated once, exported explicitly, and reused for compose pull/up plus the explicit migration step.
+- Detail: Updated cleanup and rollback flows to reload restored compose.env values before recreating services, and synced IMAGE_TAG in-process after compose.env tag updates.
+

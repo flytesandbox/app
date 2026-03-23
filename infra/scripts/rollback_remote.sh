@@ -4,6 +4,7 @@ set -Eeuo pipefail
 APP_ROOT="${APP_ROOT:-/app/staging}"
 COMPOSE_FILE="${COMPOSE_FILE:-$APP_ROOT/compose.yml}"
 COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$APP_ROOT/compose.env}"
+DEFAULT_RUNTIME_ENV_FILE="${DEFAULT_RUNTIME_ENV_FILE:-$APP_ROOT/.env}"
 STATE_DIR="${STATE_DIR:-$APP_ROOT/.deploy-state}"
 RELEASE_FILE="${RELEASE_FILE:-$APP_ROOT/release.env}"
 SERVICE_NAME="${SERVICE_NAME:-web}"
@@ -30,7 +31,7 @@ require_file() {
 }
 
 compose() {
-  docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  docker compose -f "$COMPOSE_FILE" "$@"
 }
 
 env_upsert() {
@@ -78,6 +79,13 @@ load_compose_env() {
   # shellcheck disable=SC1090
   . "$COMPOSE_ENV_FILE"
   set +a
+}
+
+resolve_runtime_env_file() {
+  local runtime_env_file="${APP_RUNTIME_ENV_FILE:-$DEFAULT_RUNTIME_ENV_FILE}"
+  require_file "$runtime_env_file"
+  APP_RUNTIME_ENV_FILE="$runtime_env_file"
+  export APP_RUNTIME_ENV_FILE
 }
 
 ghcr_login_if_needed() {
@@ -131,6 +139,8 @@ SERVICE_RECREATED=0
 cleanup() {
   if [ "$ROLLBACK_FAILED" -eq 1 ] && [ -f "$BACKUP_COMPOSE_ENV" ]; then
     cp "$BACKUP_COMPOSE_ENV" "$COMPOSE_ENV_FILE"
+    load_compose_env
+    resolve_runtime_env_file
 
     if [ "$SERVICE_RECREATED" -eq 1 ]; then
       echo "[rollback] restoring previous service after failed rollback" >&2
@@ -145,6 +155,7 @@ cleanup() {
 trap 'rc=$?; trap - EXIT; cleanup "$rc"; exit "$rc"' EXIT
 
 load_compose_env
+resolve_runtime_env_file
 
 if [ -z "${IMAGE_NAME:-}" ]; then
   echo "IMAGE_NAME is missing from $COMPOSE_ENV_FILE" >&2
@@ -171,6 +182,8 @@ ghcr_login_if_needed
 
 echo "[rollback] updating compose tag"
 env_upsert "IMAGE_TAG" "$ROLLBACK_TAG" "$COMPOSE_ENV_FILE"
+IMAGE_TAG="$ROLLBACK_TAG"
+export IMAGE_TAG
 
 echo "[rollback] pulling rollback image"
 compose pull "$SERVICE_NAME"

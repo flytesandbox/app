@@ -30,7 +30,7 @@ require_file() {
 }
 
 compose() {
-  docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  docker compose -f "$COMPOSE_FILE" "$@"
 }
 
 env_get() {
@@ -106,6 +106,13 @@ load_compose_env() {
   set +a
 }
 
+resolve_runtime_env_file() {
+  local runtime_env_file="${APP_RUNTIME_ENV_FILE:-$DEFAULT_RUNTIME_ENV_FILE}"
+  require_file "$runtime_env_file"
+  APP_RUNTIME_ENV_FILE="$runtime_env_file"
+  export APP_RUNTIME_ENV_FILE
+}
+
 ghcr_login_if_needed() {
   if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
     printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin >/dev/null
@@ -162,6 +169,8 @@ SERVICE_RECREATED=0
 cleanup() {
   if [ "$DEPLOY_FAILED" -eq 1 ] && [ -f "$BACKUP_COMPOSE_ENV" ]; then
     cp "$BACKUP_COMPOSE_ENV" "$COMPOSE_ENV_FILE"
+    load_compose_env
+    resolve_runtime_env_file
 
     if [ "$SERVICE_RECREATED" -eq 1 ]; then
       echo "[deploy] restoring previous service after failed deploy" >&2
@@ -176,9 +185,8 @@ cleanup() {
 trap 'rc=$?; trap - EXIT; cleanup "$rc"; exit "$rc"' EXIT
 
 load_compose_env
-
-RUNTIME_ENV_FILE="${APP_RUNTIME_ENV_FILE:-$DEFAULT_RUNTIME_ENV_FILE}"
-require_file "$RUNTIME_ENV_FILE"
+resolve_runtime_env_file
+RUNTIME_ENV_FILE="$APP_RUNTIME_ENV_FILE"
 DATABASE_ENABLED="$(parse_boolean "DATABASE_ENABLED" "$(env_get "DATABASE_ENABLED" "$RUNTIME_ENV_FILE")")"
 
 CURRENT_TAG="${IMAGE_TAG:-}"
@@ -197,6 +205,8 @@ ghcr_login_if_needed
 
 echo "[deploy] updating compose tag"
 env_upsert "IMAGE_TAG" "$TARGET_TAG" "$COMPOSE_ENV_FILE"
+IMAGE_TAG="$TARGET_TAG"
+export IMAGE_TAG
 
 echo "[deploy] pulling target image"
 compose pull "$SERVICE_NAME"
