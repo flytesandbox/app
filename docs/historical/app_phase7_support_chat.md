@@ -5365,7 +5365,7 @@ findstr /N "CLERK_JWT_KEY" web\.env.container.local
 That will confirm whether the file still has hidden line breaks.
 
 The new c:\Dev\Repos\app>findstr /N "CLERK_SECRET_KEY CLERK_JWT_KEY DATABASE_URL DATABASE_MIGRATION_URL" web\.env.container.local
-10:CLERK_SECRET_KEY=sk_test_lkPm2VteLNr7xk2LF8dXMigCF2Z0XxnVsotcIi68aK
+10:CLERK_SECRET_KEY=sk_test_REDACTED_ROTATE_THIS_KEY
 11:CLERK_JWT_KEY=/n-----BEGIN PUBLIC KEY-----
 22:DATABASE_URL=mysql://app_local_runtime:app_local_runtime_dev_only@host.docker.internal:3307/app_local
 23:DATABASE_MIGRATION_URL=mysql://app_local_migrate:app_local_migrate_dev_only@host.docker.internal:3307/app_local

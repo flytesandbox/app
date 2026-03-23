@@ -91,16 +91,16 @@ async function main() {
       console.log(`[db-migrate] applying migration: ${file}`)
       const sql = await fs.readFile(path.join(migrationsDir, file), 'utf8')
 
-      await client.beginTransaction()
       try {
         await client.query(sql)
         await client.execute(
           'INSERT INTO schema_migrations (version) VALUES (?)',
           [file],
         )
-        await client.commit()
       } catch (error) {
-        await client.rollback()
+        console.error(
+          `[db-migrate] migration failed before recording version: ${file}`,
+        )
         throw error
       }
     }
