@@ -119,20 +119,30 @@ docker compose version >/dev/null
 
 require_file "$COMPOSE_FILE"
 require_file "$COMPOSE_ENV_FILE"
+mkdir -p "$STATE_DIR"
 require_file "$STATE_DIR/previous_image_tag"
 touch "$RELEASE_FILE"
 
 BACKUP_COMPOSE_ENV="$(mktemp)"
 cp "$COMPOSE_ENV_FILE" "$BACKUP_COMPOSE_ENV"
 ROLLBACK_FAILED=1
+SERVICE_RECREATED=0
 
 cleanup() {
   if [ "$ROLLBACK_FAILED" -eq 1 ] && [ -f "$BACKUP_COMPOSE_ENV" ]; then
     cp "$BACKUP_COMPOSE_ENV" "$COMPOSE_ENV_FILE"
+
+    if [ "$SERVICE_RECREATED" -eq 1 ]; then
+      echo "[rollback] restoring previous service after failed rollback" >&2
+      if ! compose up -d "$SERVICE_NAME" >/dev/null 2>&1; then
+        echo "[rollback] automatic service restore failed; manual intervention may be required" >&2
+      fi
+    fi
   fi
+
   rm -f "$BACKUP_COMPOSE_ENV"
 }
-trap cleanup EXIT
+trap 'rc=$?; trap - EXIT; cleanup "$rc"; exit "$rc"' EXIT
 
 load_compose_env
 
@@ -167,6 +177,7 @@ compose pull "$SERVICE_NAME"
 
 echo "[rollback] recreating service"
 compose up -d "$SERVICE_NAME"
+SERVICE_RECREATED=1
 
 echo "[rollback] waiting for boot"
 sleep 5

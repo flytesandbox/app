@@ -1,4 +1,4 @@
-CREATE TABLE audit_events (
+CREATE TABLE IF NOT EXISTS audit_events (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   tenant_id VARCHAR(191) NULL,
   actor_user_id VARCHAR(191) NULL,

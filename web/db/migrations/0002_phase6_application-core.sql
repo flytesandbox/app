@@ -1,4 +1,4 @@
-CREATE TABLE applications (
+CREATE TABLE IF NOT EXISTS applications (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   tenant_id VARCHAR(191) NOT NULL,
   created_by_user_id VARCHAR(191) NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE applications (
   KEY idx_applications_created_by_user_id_created_at (created_by_user_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE application_uploads (
+CREATE TABLE IF NOT EXISTS application_uploads (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   application_id BIGINT UNSIGNED NOT NULL,
   tenant_id VARCHAR(191) NOT NULL,
