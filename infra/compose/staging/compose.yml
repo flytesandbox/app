@@ -1,7 +1,6 @@
 services:
   web:
     image: ${IMAGE_NAME}:${IMAGE_TAG}
-    container_name: app-staging-web
     restart: unless-stopped
     pull_policy: always
     env_file:

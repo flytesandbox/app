@@ -392,3 +392,27 @@
 - Detail: Check GitHub Variables at the staging environment, repository, and organization scopes for STAGING_DEPLOY_PATH. The workflow received a non-empty value that is not /app/staging.
 - Detail: Set STAGING_DEPLOY_PATH to /app/staging exactly, with no quotes, no trailing slash, and no alternate staging root unless the repo scripts/docs are deliberately updated together.
 
+
+### 2026-03-24T15:54:24Z | request | Investigating staging deploy failure due to app-staging-web container name conflict.
+- Status: captured
+- Detail: Reviewing staging compose configuration and remote deploy script behavior to determine whether the conflict is caused by fixed container_name usage, compose project drift, or stale remote state between deploy attempts.
+
+
+### 2026-03-24T15:55:27Z | decision | Selected remediation for staging container-name conflict.
+- Status: captured
+- Detail: Remove fixed container_name from infra/compose/staging/compose.yml so compose can manage the service container under the project lifecycle instead of a global Docker name.
+- Detail: Add a legacy-container cleanup step to deploy_remote.sh and rollback_remote.sh to remove an existing app-staging-web container before compose up, preventing conflicts and avoiding duplicate Traefik-labeled containers during the transition.
+
+
+### 2026-03-24T15:56:25Z | change | Removed fixed staging container name and added legacy-container cleanup to deploy rails.
+- Status: captured
+- Detail: Deleted container_name from infra/compose/staging/compose.yml so Docker Compose can manage the web service container under the project lifecycle.
+- Detail: deploy_remote.sh and rollback_remote.sh now remove a legacy app-staging-web container immediately before compose up and use --remove-orphans to keep the project state clean during transition.
+
+
+### 2026-03-24T15:56:39Z | verify | Verified staging container-name conflict remediation locally.
+- Status: captured
+- Detail: git diff --check on the edited staging compose and deploy/rollback scripts reported only existing CRLF line-ending warnings.
+- Detail: Direct repo inspection confirms the fixed container_name is removed and the deploy/rollback scripts now remove a legacy app-staging-web container before compose up.
+- Detail: bash -n could not run on this Windows host because invoking bash returned Access is denied, so shell syntax was not verified with bash locally.
+

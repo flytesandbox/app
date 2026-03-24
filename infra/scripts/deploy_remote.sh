@@ -21,6 +21,7 @@ CONTAINER_HEALTH_DELAY="${CONTAINER_HEALTH_DELAY:-5}"
 INGRESS_PROBE_ATTEMPTS="${INGRESS_PROBE_ATTEMPTS:-24}"
 INGRESS_PROBE_DELAY="${INGRESS_PROBE_DELAY:-5}"
 LAST_PROBE_ERROR=""
+LEGACY_SERVICE_CONTAINER_NAME="${LEGACY_SERVICE_CONTAINER_NAME:-app-staging-web}"
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -438,6 +439,30 @@ get_service_container_id() {
   compose ps -q "$SERVICE_NAME" | head -n 1
 }
 
+get_container_id_by_name() {
+  local name="$1"
+  docker container inspect --format '{{.Id}}' "$name" 2>/dev/null || true
+}
+
+remove_legacy_service_container_conflict() {
+  local legacy_container_id
+  local active_container_id
+
+  legacy_container_id="$(get_container_id_by_name "$LEGACY_SERVICE_CONTAINER_NAME")"
+  if [ -z "$legacy_container_id" ]; then
+    return 0
+  fi
+
+  active_container_id="$(get_service_container_id)"
+  if [ -n "$active_container_id" ] && [ "$active_container_id" = "$legacy_container_id" ]; then
+    echo "[deploy] removing legacy fixed-name container ${LEGACY_SERVICE_CONTAINER_NAME} before compose-managed recreate" >&2
+  else
+    echo "[deploy] removing conflicting legacy container ${LEGACY_SERVICE_CONTAINER_NAME}" >&2
+  fi
+
+  docker rm -f "$LEGACY_SERVICE_CONTAINER_NAME" >/dev/null
+}
+
 service_health_status() {
   local container_id="$1"
   docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id"
@@ -592,7 +617,8 @@ else
 fi
 
 echo "[deploy] recreating service"
-compose up -d "$SERVICE_NAME"
+remove_legacy_service_container_conflict
+compose up -d --remove-orphans "$SERVICE_NAME"
 SERVICE_RECREATED=1
 
 echo "[deploy] waiting for container health"
