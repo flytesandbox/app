@@ -471,3 +471,18 @@ Staging Clerk handoff required before auth-backed deploy can pass:
 - activate/configure the staging Clerk domain and related redirects
 - copy the staging Clerk publishable key, secret key, and JWT key into the GitHub `staging` environment
 - keep staging Clerk settings in sync manually with production-facing Clerk changes because Clerk does not auto-mirror a separate staging app
+
+## Closure update - 2026-03-24
+
+Live evidence:
+
+- a later `Deploy Staging` run completed successfully on `main`
+- the staging deploy rail therefore completed CI image publish, SSH transport, remote file copy, service recreate, and the gated ingress probes
+- `https://staging.mecplans101.com` returned the Phase 4 Identity Shell instead of a Traefik default page or container failure response
+
+Decision:
+
+- Phase 7 is complete under the temporary pass condition defined above while `DATABASE_ENABLED=false`
+- the staging Clerk prerequisite is now satisfied for this phase-level proof
+- Phase 6 staging DB enablement remains a separate follow-on before DB mode is re-enabled
+- production remains separate future work and is not closed by the staging result

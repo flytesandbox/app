@@ -445,3 +445,63 @@
 - Detail: Local development and staging may use self-signed certificates during rebuild and pre-production phases.
 - Detail: Production must use a formally issued trusted SSL/TLS certificate, or an approved project/build equivalent that provides the same trust and validation guarantees, before go-live.
 
+
+### 2026-03-24T16:09:31Z | request | Investigating post-deploy 404 on https://mecplans101.com after successful staging deploy.
+- Status: captured
+- Detail: Reviewing repo routing contracts and rebuild docs to determine whether production hostname is expected to be unserved during staging-only deployment and whether any repo-side clarification or guardrail should be added.
+
+
+### 2026-03-24T16:09:54Z | discovery | Production hostname 404 after staging deploy is consistent with current repo state.
+- Status: captured
+- Detail: The staging app compose file only defines a Traefik router for STAGING_WEB_HOST, which is staging.mecplans101.com.
+- Detail: Phase 2 and the environment-boundary docs still define production as a separate future server and deploy rail, so mecplans101.com is not expected to be served by the staging deployment.
+
+
+### 2026-03-24T16:10:01Z | manual-action | Operational follow-up for production hostname behavior after staging deploy.
+- Status: captured
+- Detail: Verify whether mecplans101.com currently resolves to the staging server or to a different surface. If it resolves to staging, that violates the locked environment-separation plan and should be corrected until a real production rail exists.
+- Detail: Use the staging hostname for current validation. Production hostname/service should not be treated as live until the repo contains a production compose path, production deploy workflow, and production infrastructure build-out.
+
+
+### 2026-03-24T16:11:47Z | request | Reviewing rebuild logging system and Phase 7 completion status.
+- Status: captured
+- Detail: Auditing docs/rebuild-log/current.md against the Phase 7 CI/CD pipeline document, completion criteria, and recent deploy evidence to determine whether Phase 7 can be considered complete.
+
+
+### 2026-03-24T16:13:05Z | discovery | Logging review found Phase 7 closure evidence is incomplete in current.md and the phase doc.
+- Status: captured
+- Detail: current.md records the review request but does not yet record the later successful staging deploy, successful health/readiness probes, or an explicit Phase 7 completion decision.
+- Detail: current.md still carries stale open manual-action context from earlier in the day, including the web/.env.example commit follow-up that is now already satisfied in git.
+- Detail: docs/rebuild/phase-7-ci-cd-pipeline.md still says Phase 7 cannot prove health until Clerk staging setup exists, which is now outdated if the user-reported successful deploy was run against current main.
+
+
+### 2026-03-24T16:13:12Z | decision | Phase 7 completion assessment after logging review.
+- Status: captured
+- Detail: Based on the Phase 7 document's temporary pass condition, a successful staging deploy implies the CI publish, SSH transport, remote script copy, service recreation, and ingress /api/health and /api/ready checks passed. Under that temporary DATABASE_ENABLED=false staging rail, Phase 7 is functionally complete.
+- Detail: Phase 7 is not yet fully closed in repo-owned documentation because the successful deploy outcome and completion decision have not been written back into docs/rebuild-log/current.md or docs/rebuild/phase-7-ci-cd-pipeline.md.
+- Detail: This does not change the separate open work for Phase 6 staging DB enablement or the future production deploy rail.
+
+
+### 2026-03-24T16:13:18Z | verify | Verified Phase 7 completion assessment inputs.
+- Status: captured
+- Detail: Confirmed web/.env.example is tracked in git, so the earlier current.md manual-action entry about committing that file is now stale rather than still pending.
+- Detail: Confirmed phase-7-ci-cd-pipeline.md defines a temporary pass condition of successful staging deploy plus successful /api/health and /api/ready while DATABASE_ENABLED=false, and does not yet contain a later closure update.
+
+
+### 2026-03-24T16:14:04Z | discovery | Staging app now serves the expected Phase 4 identity shell.
+- Status: captured
+- Detail: User confirmed https://staging.mecplans101.com returned the Phase 4 Identity Shell after the successful staging deploy.
+- Detail: This is strong live evidence that the staging router, container startup, and app runtime are all now serving the intended rebuild surface rather than a Traefik default route or container error page.
+
+
+### 2026-03-24T16:14:18Z | decision | Live staging shell confirms the temporary Phase 7 pass condition.
+- Status: captured
+- Detail: User confirmed staging.mecplans101.com now serves the Phase 4 Identity Shell after deploy success. Combined with the successful deploy rail, this is sufficient to treat the temporary DATABASE_ENABLED=false Phase 7 pass condition as met.
+- Detail: Phase 7 is therefore complete for the CI/CD rail under the temporary staging-without-DB condition, while Phase 6 DB enablement and the future production rail remain separate open work.
+
+
+### 2026-03-24T16:14:39Z | verify | Recorded live staging shell evidence into the Phase 7 closure trail.
+- Status: captured
+- Detail: Updated docs/rebuild/phase-7-ci-cd-pipeline.md with a closure note stating that the later successful staging deploy and the live Phase 4 Identity Shell satisfy the temporary Phase 7 pass condition while DATABASE_ENABLED=false.
+- Detail: git diff --check on the Phase 7 doc reported no whitespace errors.
+
