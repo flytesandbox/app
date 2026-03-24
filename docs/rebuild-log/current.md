@@ -416,3 +416,32 @@
 - Detail: Direct repo inspection confirms the fixed container_name is removed and the deploy/rollback scripts now remove a legacy app-staging-web container before compose up.
 - Detail: bash -n could not run on this Windows host because invoking bash returned Access is denied, so shell syntax was not verified with bash locally.
 
+
+### 2026-03-24T16:01:52Z | request | Investigating staging deploy failure due to self-signed TLS certificate during ingress probe.
+- Status: captured
+- Detail: Reviewing staging compose labels, Traefik configuration references, and deploy probe behavior to determine whether the failure is a valid TLS guardrail or an overly strict probe during certificate bootstrap.
+
+
+### 2026-03-24T16:02:33Z | discovery | Identified likely repo-side cause of self-signed TLS on staging app route.
+- Status: captured
+- Detail: infra/compose/staging/compose.yml enables TLS on the app router but does not set traefik.http.routers.app-staging-web.tls.certresolver.
+- Detail: The documented Traefik stack in phase 3 uses the ACME resolver name le for TLS issuance, so the app router can fall back to the Traefik default self-signed certificate without the matching router label.
+
+
+### 2026-03-24T16:02:46Z | change | Added explicit Traefik ACME certresolver to the staging app router.
+- Status: captured
+- Detail: infra/compose/staging/compose.yml now sets traefik.http.routers.app-staging-web.tls.certresolver=le, matching the documented staging Traefik resolver name from phase 3.
+- Detail: The deploy ingress probe remains certificate-validating by design so staging will still fail if the live Traefik stack is missing ACME capability or cannot issue the certificate.
+
+
+### 2026-03-24T16:02:54Z | verify | Verified staging app-router TLS label update locally.
+- Status: captured
+- Detail: infra/compose/staging/compose.yml now includes traefik.http.routers.app-staging-web.tls.certresolver=le.
+- Detail: git diff --check reported only existing CRLF line-ending warnings; no whitespace errors were introduced.
+
+
+### 2026-03-24T16:05:20Z | decision | TLS policy note for future phase builds.
+- Status: captured
+- Detail: Local development and staging may use self-signed certificates during rebuild and pre-production phases.
+- Detail: Production must use a formally issued trusted SSL/TLS certificate, or an approved project/build equivalent that provides the same trust and validation guarantees, before go-live.
+
