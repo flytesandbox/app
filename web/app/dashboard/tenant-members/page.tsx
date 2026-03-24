@@ -22,13 +22,32 @@ export default async function DashboardTenantMembersPage() {
     await getTenantMembersPageContext()
 
   return (
-    <main className="p-8 space-y-4">
-      <h1 className="text-2xl font-bold">Tenant Members</h1>
-      <p>This is the tenant member management surface.</p>
+    <main className="space-y-5">
+      <section className="rounded-[2rem] border border-black/8 bg-[color:var(--surface)] p-8 shadow-[0_20px_70px_rgba(60,39,18,0.08)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+          Tenant access
+        </p>
+        <h1 className="mt-4 text-4xl">Team access</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--muted)]">
+          Membership management is still intentionally narrow in this base-app
+          slice. This page is here to frame where team access will live without
+          pretending the full management feature is already rebuilt.
+        </p>
+      </section>
 
-      <div className="space-y-1 text-sm">
-        <p><strong>Role:</strong> {permissionContext.role}</p>
-        <p><strong>Tenant:</strong> {tenantContext.tenantId}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-[1.4rem] border border-black/8 bg-white/80 p-4 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+            Role
+          </p>
+          <p className="mt-2 font-semibold">{permissionContext.role}</p>
+        </div>
+        <div className="rounded-[1.4rem] border border-black/8 bg-white/80 p-4 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+            Tenant
+          </p>
+          <p className="mt-2 font-semibold">{tenantContext.tenantId}</p>
+        </div>
       </div>
     </main>
   )

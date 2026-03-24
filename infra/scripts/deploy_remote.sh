@@ -320,6 +320,18 @@ RELEASE_PREVIOUS_GOOD_TAG=$previous_good_tag
 EOF
 }
 
+sync_runtime_release_env() {
+  local git_sha="$1"
+  local image_tag="$2"
+  local deployed_at="$3"
+  local previous_good_tag="$4"
+
+  env_upsert "RELEASE_GIT_SHA" "$git_sha" "$RUNTIME_ENV_FILE"
+  env_upsert "RELEASE_IMAGE_TAG" "$image_tag" "$RUNTIME_ENV_FILE"
+  env_upsert "RELEASE_DEPLOYED_AT" "$deployed_at" "$RUNTIME_ENV_FILE"
+  env_upsert "RELEASE_PREVIOUS_GOOD_TAG" "$previous_good_tag" "$RUNTIME_ENV_FILE"
+}
+
 load_compose_env() {
   set -a
   # shellcheck disable=SC1090
@@ -646,10 +658,17 @@ if [ -n "$CURRENT_TAG" ]; then
 fi
 printf '%s\n' "$TARGET_TAG" > "$STATE_DIR/current_image_tag"
 
+DEPLOYED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
 write_release_file \
   "$GIT_SHA" \
   "$TARGET_TAG" \
-  "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  "$DEPLOYED_AT" \
+  "$PREVIOUS_GOOD_TAG"
+sync_runtime_release_env \
+  "$GIT_SHA" \
+  "$TARGET_TAG" \
+  "$DEPLOYED_AT" \
   "$PREVIOUS_GOOD_TAG"
 
 DEPLOY_FAILED=0

@@ -26,8 +26,8 @@ COPY --from=builder /app/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 COPY --from=builder --chown=node:node /app/public ./public
-COPY --from=builder --chown=node:node /app/.next-phase7/standalone ./
-COPY --from=builder --chown=node:node /app/.next-phase7/static ./.next-phase7/static
+COPY --from=builder --chown=node:node /app/next-phase7/standalone ./
+COPY --from=builder --chown=node:node /app/next-phase7/static ./next-phase7/static
 COPY --from=builder --chown=node:node /app/db ./db
 COPY --from=builder --chown=node:node /app/scripts ./scripts
 

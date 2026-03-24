@@ -1,18 +1,25 @@
 import {
-  AuthzError,
   requireInternalRole,
   requireSignedIn,
   requireTenantMember,
 } from '@/lib/authz'
+import {
+  jsonResponse,
+  mapAuthzError,
+  withObservedRoute,
+} from '@/lib/observability/http'
 
-export async function GET() {
-  try {
+export const GET = withObservedRoute(
+  'api.private.me.get',
+  async (_request, ctx) => {
     const signedIn = await requireSignedIn()
 
     try {
       const tenantUser = await requireTenantMember()
 
-      return Response.json(
+      return jsonResponse(
+        ctx,
+        200,
         {
           ok: true,
           scope: 'tenant',
@@ -20,10 +27,10 @@ export async function GET() {
           tenantId: tenantUser.tenantId,
           role: tenantUser.role,
         },
-        { status: 200 },
       )
     } catch (error) {
-      if (!(error instanceof AuthzError) || error.status === 401) {
+      const mapped = mapAuthzError(error)
+      if (!mapped || mapped.status === 401) {
         throw error
       }
     }
@@ -36,7 +43,9 @@ export async function GET() {
         'read_only_auditor',
       ])
 
-      return Response.json(
+      return jsonResponse(
+        ctx,
+        200,
         {
           ok: true,
           scope: 'internal',
@@ -44,15 +53,17 @@ export async function GET() {
           tenantId: internalUser.tenantId,
           role: internalUser.role,
         },
-        { status: 200 },
       )
     } catch (error) {
-      if (!(error instanceof AuthzError) || error.status === 401) {
+      const mapped = mapAuthzError(error)
+      if (!mapped || mapped.status === 401) {
         throw error
       }
     }
 
-    return Response.json(
+    return jsonResponse(
+      ctx,
+      403,
       {
         ok: false,
         code: 'NOT_ALLOWED',
@@ -62,16 +73,7 @@ export async function GET() {
         tenantId: signedIn.tenantId,
         role: signedIn.role,
       },
-      { status: 403 },
     )
-  } catch (error) {
-    if (error instanceof AuthzError) {
-      return Response.json(
-        { ok: false, code: error.code, message: error.message },
-        { status: error.status },
-      )
-    }
-
-    throw error
-  }
-}
+  },
+  { mapError: mapAuthzError },
+)

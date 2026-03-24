@@ -89,6 +89,7 @@ export default async function DashboardLiveCheckPage() {
         <h2 className="font-semibold">Manual Check Targets</h2>
         <ul className="list-disc pl-5 space-y-1">
           <li>/dashboard/application</li>
+          <li>/dashboard/application/review</li>
           <li>/dashboard/admin/applications</li>
           <li>/api/private/me</li>
           <li>/api/private/application</li>

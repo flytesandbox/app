@@ -1,18 +1,25 @@
 import {
-  AuthzError,
   requireInternalRole,
   requireSignedIn,
   requireTenantMember,
 } from '@/lib/authz'
+import {
+  jsonResponse,
+  mapAuthzError,
+  withObservedRoute,
+} from '@/lib/observability/http'
 
-export async function GET() {
-  try {
+export const GET = withObservedRoute(
+  'api.private.tenant-check.get',
+  async (_request, ctx) => {
     const signedInContext = await requireSignedIn()
 
     try {
       const tenantContext = await requireTenantMember()
 
-      return Response.json(
+      return jsonResponse(
+        ctx,
+        200,
         {
           ok: true,
           scope: 'tenant',
@@ -20,18 +27,15 @@ export async function GET() {
           tenantId: tenantContext.tenantId,
           role: tenantContext.role,
         },
-        { status: 200 },
       )
     } catch (error) {
-      if (!(error instanceof AuthzError)) {
+      const mapped = mapAuthzError(error)
+      if (!mapped) {
         throw error
       }
 
-      if (error.status === 401) {
-        return Response.json(
-          { ok: false, code: error.code, message: error.message },
-          { status: 401 },
-        )
+      if (mapped.status === 401) {
+        return jsonResponse(ctx, mapped.status, mapped.body)
       }
     }
 
@@ -43,21 +47,25 @@ export async function GET() {
         'read_only_auditor',
       ])
 
-      return Response.json(
+      return jsonResponse(
+        ctx,
+        200,
         {
           ok: true,
           scope: 'internal',
           userId: internalContext.userId,
           role: internalContext.role,
         },
-        { status: 200 },
       )
     } catch (error) {
-      if (!(error instanceof AuthzError)) {
+      const mapped = mapAuthzError(error)
+      if (!mapped) {
         throw error
       }
 
-      return Response.json(
+      return jsonResponse(
+        ctx,
+        403,
         {
           ok: false,
           code: 'NOT_ALLOWED',
@@ -65,17 +73,8 @@ export async function GET() {
             'Signed-in user is not allowed. Active tenant context or internal role is required.',
           userId: signedInContext.userId,
         },
-        { status: 403 },
       )
     }
-  } catch (error) {
-    if (error instanceof AuthzError) {
-      return Response.json(
-        { ok: false, code: error.code, message: error.message },
-        { status: error.status },
-      )
-    }
-
-    throw error
-  }
-}
+  },
+  { mapError: mapAuthzError },
+)

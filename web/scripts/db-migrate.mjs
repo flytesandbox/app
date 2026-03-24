@@ -1,6 +1,18 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+
+import nextEnv from '@next/env'
 import mysql from 'mysql2/promise'
+
+const { loadEnvConfig } = nextEnv
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const projectRoot = path.resolve(__dirname, '..')
+
+loadEnvConfig(projectRoot)
 
 const LOCAL_DB_HOSTS = new Set([
   '127.0.0.1',

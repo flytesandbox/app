@@ -9,32 +9,51 @@ import {
 import './globals.css'
 
 export const metadata = {
-  title: 'App',
-  description: 'Phase 5 authorization shell',
+  title: 'MEC Plans Base App',
+  description: 'Base application for Phase 9 UI and workflow testing.',
 }
 
 function AppHeader() {
   return (
-    <header className="border-b">
-      <div className="mx-auto flex max-w-5xl items-center justify-between p-4">
-        <Link href="/" className="font-semibold">
-          App
-        </Link>
+    <header className="sticky top-0 z-20 border-b border-black/5 bg-[rgba(255,250,244,0.88)] backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="space-y-1">
+          <Link href="/" className="text-lg font-semibold tracking-[0.08em] uppercase text-[color:var(--accent-strong)]">
+            MEC Plans
+          </Link>
+          <p className="text-sm text-[color:var(--muted)]">
+            Phase 9 base application
+          </p>
+        </div>
+
+        <nav className="hidden items-center gap-3 text-sm md:flex">
+          <Link href="/" className="rounded-full border border-black/10 bg-white/70 px-4 py-2">
+            Overview
+          </Link>
+          <Link href="/dashboard" className="rounded-full border border-black/10 bg-white/70 px-4 py-2">
+            Workspace
+          </Link>
+          <Link href="/api/release" className="rounded-full border border-black/10 bg-white/70 px-4 py-2">
+            Release
+          </Link>
+        </nav>
 
         <div className="flex items-center gap-3">
           <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button className="rounded border px-4 py-2">Sign in</button>
-            </SignInButton>
-
-            <Link href="/sign-up" className="rounded border px-4 py-2">
-              Sign up
+            <Link href="/sign-up" className="hidden rounded-full border border-black/10 bg-white/70 px-4 py-2 text-sm md:inline-flex">
+              Create account
             </Link>
+
+            <SignInButton mode="modal">
+              <button className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(127,50,21,0.18)]">
+                Sign in
+              </button>
+            </SignInButton>
           </Show>
 
           <Show when="signed-in">
-            <Link href="/dashboard" className="rounded border px-4 py-2">
-              Dashboard
+            <Link href="/dashboard/application" className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-sm">
+              Application
             </Link>
             <UserButton />
           </Show>
@@ -54,7 +73,7 @@ export default function RootLayout({
       <html lang="en">
         <body>
           <AppHeader />
-          {children}
+          <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
         </body>
       </html>
     </ClerkProvider>

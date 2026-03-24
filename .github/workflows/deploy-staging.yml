@@ -338,6 +338,13 @@ jobs:
           deploy_dir = Path(".deploy/staging")
           deploy_dir.mkdir(parents=True, exist_ok=True)
 
+          release_env = {
+              "RELEASE_GIT_SHA": os.environ["GITHUB_SHA"],
+              "RELEASE_IMAGE_TAG": os.environ["IMAGE_TAG"],
+              "RELEASE_DEPLOYED_AT": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "RELEASE_PREVIOUS_GOOD_TAG": "unknown",
+          }
+
           runtime_env = {
               "APP_ENV": os.environ["APP_ENV"],
               "NEXT_PUBLIC_APP_URL": os.environ["NEXT_PUBLIC_APP_URL"],
@@ -357,6 +364,7 @@ jobs:
               "DB_SSL_REQUIRED": os.environ["DB_SSL_REQUIRED"],
               "DB_POOL_LIMIT": os.environ["DB_POOL_LIMIT"],
               "IMAGE_NAME": os.environ["FULL_IMAGE_NAME"],
+              **release_env,
           }
 
           compose_env = {
@@ -366,13 +374,6 @@ jobs:
               "STAGING_WEB_HOST": os.environ["STAGING_WEB_HOST"],
               "APP_INTERNAL_PORT": "3000",
               "APP_RUNTIME_ENV_FILE": ".env",
-          }
-
-          release_env = {
-              "RELEASE_GIT_SHA": os.environ["GITHUB_SHA"],
-              "RELEASE_IMAGE_TAG": os.environ["IMAGE_TAG"],
-              "RELEASE_DEPLOYED_AT": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-              "RELEASE_PREVIOUS_GOOD_TAG": "unknown",
           }
 
           def normalize_env_value(value: str) -> str:

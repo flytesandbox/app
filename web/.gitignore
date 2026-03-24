@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /.next-phase7/
+/next-phase7/
+/.next-phase7/
 /out/
 
 # production

@@ -1,12 +1,24 @@
 import {
+  getApplicationStatusLabel,
+  getApplicationStepLabel,
+  getApplicationTitle,
+  getLatestApplicationForTenantUser,
+} from '@/lib/applications'
+import {
   assertTenantAccess,
-  AuthzError,
   requirePermission,
   requireTenantMember,
 } from '@/lib/authz'
+import { isDatabaseEnabled } from '@/lib/db/config'
+import {
+  jsonResponse,
+  mapAuthzError,
+  withObservedRoute,
+} from '@/lib/observability/http'
 
-export async function GET(request: Request) {
-  try {
+export const GET = withObservedRoute(
+  'api.private.application.get',
+  async (request, ctx) => {
     const tenantContext = await requireTenantMember()
     const permissionContext = await requirePermission('application:view_own')
 
@@ -17,24 +29,50 @@ export async function GET(request: Request) {
       await assertTenantAccess(recordTenantId)
     }
 
-    return Response.json(
-      {
+    if (!isDatabaseEnabled()) {
+      return jsonResponse(ctx, 200, {
         ok: true,
         scope: 'tenant',
+        mode: 'preview',
         userId: tenantContext.userId,
         tenantId: tenantContext.tenantId,
         role: permissionContext.role,
-      },
-      { status: 200 },
-    )
-  } catch (error) {
-    if (error instanceof AuthzError) {
-      return Response.json(
-        { ok: false, code: error.code, message: error.message },
-        { status: error.status },
-      )
+        application: null,
+      })
     }
 
-    throw error
-  }
-}
+    const latestApplication = await getLatestApplicationForTenantUser(
+      tenantContext.tenantId,
+      tenantContext.userId,
+    )
+
+    return jsonResponse(
+      ctx,
+      200,
+      {
+        ok: true,
+        scope: 'tenant',
+        mode: 'live',
+        userId: tenantContext.userId,
+        tenantId: tenantContext.tenantId,
+        role: permissionContext.role,
+        application: latestApplication
+          ? {
+              id: latestApplication.id,
+              title: getApplicationTitle(latestApplication),
+              status: latestApplication.status,
+              statusLabel: getApplicationStatusLabel(latestApplication.status),
+              currentStep: latestApplication.currentStep,
+              currentStepLabel: getApplicationStepLabel(
+                latestApplication.currentStep,
+              ),
+              submittedAt: latestApplication.submittedAt,
+              updatedAt: latestApplication.updatedAt,
+              data: latestApplication.data,
+            }
+          : null,
+      },
+    )
+  },
+  { mapError: mapAuthzError },
+)

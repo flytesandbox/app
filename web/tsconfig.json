@@ -28,6 +28,10 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
+    ".next-phase7/types/**/*.ts",
+    ".next-phase7/dev/types/**/*.ts",
+    "next-phase7/types/**/*.ts",
+    "next-phase7/dev/types/**/*.ts",
     "**/*.mts"
   ],
   "exclude": ["node_modules"]

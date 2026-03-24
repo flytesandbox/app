@@ -20,6 +20,7 @@ This logging path is intentionally isolated from app runtime and deployment infr
 
 - `current.md` is the active append-only journey log
 - `tools/append-entry.ps1` appends timestamped entries without touching app code or infra rails
+- `tools/archive-current.ps1` archives a finished `current.md` stream and creates a fresh append target
 
 ## Logging Rules
 
@@ -40,4 +41,17 @@ powershell -ExecutionPolicy Bypass -File .\docs\rebuild-log\tools\append-entry.p
 ## Session Handling
 
 - keep appending to `current.md` while the same recovery stream is active
-- when a stream is fully closed, copy or rename `current.md` into a dated archive file and start a fresh `current.md`
+- when a stream is fully closed, archive `current.md` into a dated file and start a fresh `current.md`
+
+## Archive Command
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\docs\rebuild-log\tools\archive-current.ps1
+```
+
+Optional parameters:
+
+- `-CurrentLogPath` to archive a non-default log file
+- `-ArchiveDir` to choose a non-default archive directory
+- `-ArchiveName` to force a specific archive filename
+- `-Force` to overwrite an existing archive target

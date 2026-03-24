@@ -505,3 +505,237 @@
 - Detail: Updated docs/rebuild/phase-7-ci-cd-pipeline.md with a closure note stating that the later successful staging deploy and the live Phase 4 Identity Shell satisfy the temporary Phase 7 pass condition while DATABASE_ENABLED=false.
 - Detail: git diff --check on the Phase 7 doc reported no whitespace errors.
 
+
+### 2026-03-24T16:29:05Z | request | Begin Phase 8 and review historical/logging data
+- Status: captured
+- Detail: User asked to start canonical Phase 8, review historical and logging-system materials, add a new rebuild phase file, and capture this support chat in docs/historical outside the logging system until the phase framework is complete.
+
+
+### 2026-03-24T16:30:28Z | decision | Phase 8 docs will treat rebuild logging as existing work to harden
+- Status: captured
+- Detail: The new Phase 8 rebuild note will frame docs/rebuild-log as an already-active operator trail that now needs hardening, synthesis, and expansion into broader observability/auditability deliverables.
+- Detail: A separate support-style chat transcript will be kept under docs/historical during Phase 8 as a temporary living copy of actual chat content, intentionally outside the rebuild-log system until the phase framework is complete.
+
+
+### 2026-03-24T16:30:28Z | discovery | Phase 8 starts from existing observability groundwork
+- Status: captured
+- Detail: Review of docs/rebuild-log, current.md, app_rebuild_synopsis_chat, app_phase7_chat, and app_phase7 support history shows Phase 8 is canonically observability/auditability, but the repo already has a live rebuild-log system, release metadata tracking, health/readiness endpoints, deploy diagnostics, environment-boundary audits, and an audit_events schema surface.
+
+
+### 2026-03-24T16:31:46Z | change | Added Phase 8 kickoff docs and temporary support-chat history
+- Status: captured
+- Detail: Created docs/rebuild/phase-8-observability-and-auditability.md to define the canonical Phase 8 scope around observability and auditability, starting from the already-live rebuild logging system and existing deploy/runtime evidence.
+- Detail: Created docs/historical/app_phase8_support_chat.md as a temporary living copy of the actual Phase 8 support-chat content, intentionally outside docs/rebuild-log until the phase framework is complete.
+
+
+### 2026-03-24T16:32:31Z | verify | Verified Phase 8 kickoff docs and transcript files
+- Status: captured
+- Detail: Reviewed docs/rebuild/phase-8-observability-and-auditability.md and docs/historical/app_phase8_support_chat.md after creation; both files are present and match the intended Phase 8 kickoff scope.
+- Detail: git status --short shows the expected new Phase 8 files plus the append-only change to docs/rebuild-log/current.md.
+- Detail: git diff --check reported only the existing Windows LF-to-CRLF warning on docs/rebuild-log/current.md and no whitespace errors in the new Phase 8 files.
+
+
+### 2026-03-24T16:47:19Z | request | Proceed with Phase 8 implementation
+- Status: captured
+- Detail: Continuing Phase 8 after the kickoff docs were added. Reviewing current runtime, deploy, and audit surfaces to decide the next concrete observability and auditability changes to land in repo code and docs.
+
+
+### 2026-03-24T16:55:09Z | decision | First Phase 8 implementation slice targets API correlation and audit proof
+- Status: captured
+- Detail: Proceed with a narrow slice: add request-correlation and structured API logging helpers, wire them through the current API routes, add a minimal audit-event write/query path on top of audit_events, and then document the resulting observability contract in docs/rebuild.
+
+
+### 2026-03-24T16:55:09Z | discovery | Phase 8 gap confirmed in runtime API observability
+- Status: captured
+- Detail: Review of the live code showed deploy diagnostics and an audit_events table contract already existed, but API routes still used ad hoc Response.json plus console/error patterns with no request correlation header, no structured route log shape, and no repo-owned audit-event write/query helper.
+
+
+### 2026-03-24T16:56:29Z | verify | Verified Phase 8 API correlation and audit slice
+- Status: captured
+- Detail: npx tsc --noEmit passed in c:\Dev\Repos\app\web after the new observability and audit helpers were added.
+- Detail: Targeted eslint passed for the edited API route files plus web/lib/observability/http.ts and web/lib/audit/events.ts.
+- Detail: git diff --check reported only Windows LF-to-CRLF warnings in the working copy and no whitespace errors.
+- Detail: This verification did not include a live app-server run or end-to-end HTTP exercise, so the new request-id headers and audit route behavior are currently validated by typecheck, lint, and source review rather than a booted local runtime.
+
+
+### 2026-03-24T16:56:29Z | change | Implemented Phase 8 API correlation and audit proof slice
+- Status: captured
+- Detail: Added web/lib/observability/http.ts and rewired the current API routes so they emit structured request logs, return X-Request-Id, and include requestId in JSON responses.
+- Detail: Added web/lib/audit/events.ts plus GET /api/private/admin/audit-events to provide a repo-owned audit write/query helper and a minimal admin query surface over audit_events.
+- Detail: Updated POST /api/private/admin/status-change to attempt an application.status_change_requested audit write when DB mode is enabled and to report audit skipped when DATABASE_ENABLED=false.
+- Detail: Added docs/rebuild/phase-8-observability-map.md and updated the Phase 8 note/support transcript to document the new observability contract and current gaps.
+
+
+### 2026-03-24T16:59:45Z | discovery | Phase 8 wording overstated current runtime maturity
+- Status: captured
+- Detail: User clarified that the project currently has only the app shell rather than a fuller runtime surface. Phase 8 docs should describe observability work as applying to the current shell/API surface and should not imply full feature/runtime maturity.
+
+
+### 2026-03-24T17:01:11Z | decision | Phase 8 language narrowed to shell/API surface
+- Status: captured
+- Detail: The user clarified that the current deployed surface is only the app shell rather than a fuller business/runtime surface. Phase 8 docs should therefore describe the new observability work as applying to the current shell/API surface and not imply broader runtime maturity.
+
+
+### 2026-03-24T17:01:11Z | change | Adjusted Phase 8 wording to avoid overstating runtime maturity
+- Status: captured
+- Detail: Updated docs/rebuild/phase-8-observability-and-auditability.md and docs/rebuild/phase-8-observability-map.md to replace broad runtime wording with current shell/API surface wording where phase intent required that distinction.
+- Detail: Extended docs/historical/app_phase8_support_chat.md with the user correction and the resulting wording adjustment note.
+
+
+### 2026-03-24T17:01:11Z | verify | Verified Phase 8 shell/API wording correction
+- Status: captured
+- Detail: Reviewed the updated Phase 8 note and observability map after the wording change; they now describe the current observability slice as applying to the shell/API surface rather than implying a fuller runtime.
+- Detail: git diff --check still reports only the existing Windows LF-to-CRLF warnings in the working copy and no whitespace errors from the wording correction.
+
+
+### 2026-03-24T17:05:05Z | request | Proceed with Phase 8 to completion
+- Status: captured
+- Detail: User requested Phase 8 completion. Reviewing the remaining Phase 8 gaps against the actual current shell/API system so the phase can either be fully closed with repo-owned proof or any hard blockers can be made explicit.
+
+
+### 2026-03-24T17:06:38Z | discovery | User clarified the deployable runtime boundary for Phase 8
+- Status: captured
+- Detail: The app that staging builds is considered complete and its deployable repo surface is under web/. Phase 8 closeout should therefore treat web/ as the actual runtime boundary rather than only a thinner shell abstraction.
+
+
+### 2026-03-24T17:06:38Z | decision | Phase 8 completion work will target the web runtime boundary
+- Status: captured
+- Detail: Proceed with Phase 8 completion against the actual deployable web/ runtime: extend request correlation into the broader request surface, improve release visibility for the web app, harden rebuild-log lifecycle handling, and then update the phase docs to a completion decision if verification supports it.
+
+
+### 2026-03-24T17:11:10Z | discovery | Phase 8 closeout must not canonize the current web/ repo placement
+- Status: captured
+- Detail: User clarified that the deployable app living under web/ is specific to this build and should not be recorded as a general repo or dev-app policy.,Phase 8 completion should target the current deployable app surface without treating that filesystem placement as canonical architecture.
+
+
+### 2026-03-24T17:11:16Z | decision | Phase 8 completion will harden the current app surface and operator lifecycle without architectural overreach
+- Status: captured
+- Detail: Finish Phase 8 by extending request correlation to the request edge, surfacing sanitized release metadata through the app and deploy rails, and adding a repo-owned rebuild-log archive tool.,Document any remaining limits as future observability work rather than leaving them implicit, and avoid framing web/ placement as a canonical rule outside this build.
+
+
+### 2026-03-24T17:17:57Z | change | Completed the remaining Phase 8 observability hardening and closeout artifacts
+- Status: captured
+- Detail: Extended request correlation to the broader app edge in web/proxy.ts with a shared request-ID helper and added a minimal GET /api/release surface plus release metadata on health/readiness responses.,Updated .github/workflows/deploy-staging.yml, infra/scripts/deploy_remote.sh, infra/scripts/rollback_remote.sh, and web/.env.example so RELEASE_* metadata is carried in both release.env and the runtime env consumed by the app.,Added docs/rebuild-log/tools/archive-current.ps1, updated docs/rebuild-log/README.md, completed the Phase 8 rebuild docs, and extended docs/historical/app_phase8_support_chat.md while keeping the current web/ repo placement explicitly non-canonical outside this build context.
+
+
+### 2026-03-24T17:18:05Z | verify | Verified the Phase 8 completion batch
+- Status: captured
+- Detail: npx tsc --noEmit passed in web after the request-ID, release-visibility, and proxy updates.,Targeted npx eslint passed for proxy.ts, app/api/release/route.ts, app/api/health/route.ts, app/api/ready/route.ts, and the new observability helpers under web/lib/observability/.,docs/rebuild-log/tools/archive-current.ps1 was tested against a temporary log under .tmp/rebuild-log-archive-test and correctly archived the old stream while creating a fresh current log header.,Git Bash syntax check passed for infra/scripts/deploy_remote.sh. A direct syntax run for infra/scripts/rollback_remote.sh could not be completed reliably on this machine because Git Bash raised a local Win32 signal-pipe error before parsing; the rollback changes were source-reviewed alongside the deploy script and mirror the same release-sync pattern.,git diff --check reports only existing LF-to-CRLF working-copy warnings and no whitespace errors from this Phase 8 completion batch.
+
+
+### 2026-03-24T17:25:21Z | request | Phase 9 kickoff: review docs and analyze installation plus staging approach for UI/UX testing
+- Status: captured
+- Detail: User requested full /docs review before beginning Phase 9.
+- Detail: Focus is successful app installation and push to staging for UI/UX testing of the next iteration beyond the Phase 4 shell.
+
+
+### 2026-03-24T17:26:58Z | discovery | Docs review completed; Phase 9 starts from shell-first staging with temporary DB-disabled deploy proof
+- Status: captured
+- Detail: Reviewed rebuild docs, rebuild-log artifacts, synopsis, phase chats, and support transcripts under docs/.
+- Detail: Phase 7 closure proves GitHub-to-staging deployment for the current shell while DATABASE_ENABLED=false and Phase 8 adds request/release observability.
+- Detail: Historical support notes confirm Phase 9 should build on the existing shell and authorization rails rather than re-open identity or platform phases.
+
+
+### 2026-03-24T17:30:56Z | discovery | Current Phase 9 baseline is installable only with local-state cleanup and repo hygiene fixes
+- Status: captured
+- Detail: Repo check shows Phase 8 observability files are still local working-tree changes and not yet a clean committed baseline for Phase 9.
+- Detail: web lint currently fails because generated .next-phase7 artifacts are being scanned by eslint in the local worktree.
+- Detail: Local next build fails on this Windows host with the custom .next-phase7 distDir under Next 16/Turbopack, while local-db compose validates but Docker is not currently running.
+
+
+### 2026-03-24T17:32:05Z | change | Added Phase 9 kickoff note with installation and staging approach vector
+- Status: captured
+- Detail: Created docs/rebuild/phase-9-feature-rebuild.md to record the current starting point, verified local blockers, recommended first vertical slice, and the staging DB decision gate for UI/UX testing.
+
+
+### 2026-03-24T17:32:05Z | decision | Phase 9 should begin with install-baseline hardening and one real UI/UX slice
+- Status: captured
+- Detail: Current repo state still reflects shell/proof content, so the first Phase 9 target should be a base application slice beyond the Phase 4/5 shell rather than broad feature breadth.
+- Detail: If Phase 9 staging testing needs real draft persistence, the staging DB path must be verified live before DATABASE_ENABLED is reintroduced in staging.
+
+
+### 2026-03-24T17:32:17Z | verify | Verified Phase 9 kickoff analysis and current install baseline findings
+- Status: captured
+- Detail: git diff --check passed for docs/rebuild/phase-9-feature-rebuild.md.
+- Detail: Local validation results used in the analysis: docker compose -f local-db/compose.yml config passed, docker compose -f local-db/compose.yml ps failed because Docker is not currently running on this machine, npm run lint failed because generated .next-phase7 output is being linted, and npm run build failed locally on Windows with the custom .next-phase7 distDir under Next 16/Turbopack.
+
+
+### 2026-03-24T17:54:55Z | request | Proceed with finishing Phase 9
+- Status: captured
+- Detail: User requested moving from Phase 9 kickoff analysis into implementation and closeout.
+- Detail: Immediate focus is a real base-app slice beyond the shell plus the install/baseline fixes needed for staging UI/UX testing.
+
+
+### 2026-03-24T17:58:20Z | decision | Phase 9 implementation batch will combine install hygiene with a DB-aware base-app slice
+- Status: captured
+- Detail: Edit batch will fix source-owned lint/build baseline issues around generated Next output and the custom dist directory.
+- Detail: Feature batch will replace shell/proof copy with a real landing page, tenant application workspace and review flow, plus admin queue data surfaces.
+- Detail: Route continuity issue will be resolved by aligning the user-facing application path with the documented singular /dashboard/application shape.
+
+
+### 2026-03-24T18:11:35Z | change | Phase 9 implementation batch started
+- Status: Legacy plural routes already redirect to the new singular application workspace and review flow.
+- Detail: Completing the remaining Phase 9 app/API/bootstrap patches for the tenant application slice and install baseline.
+
+
+### 2026-03-24T18:14:38Z | change | Phase 9 API and bootstrap docs updated
+- Status: Replaced placeholder repo READMEs with concrete bootstrap, validation, and staging guidance for the base application.
+- Detail: Updated private application/admin API routes to expose live or preview application data for the Phase 9 tenant slice.
+
+
+### 2026-03-24T18:20:57Z | change | Phase 9 closeout doc updated
+- Status: captured
+- Detail: Updated docs/rebuild/phase-9-feature-rebuild.md to reflect delivered product surface, validation results, and the remaining install/staging blockers.
+
+
+### 2026-03-24T18:21:17Z | verify | Phase 9 local validation completed
+- Status: captured
+- Detail: npm run lint passed in web/.
+- Detail: npm run typecheck passed in web/.
+- Detail: npm run build passed when rerun outside the sandbox after an in-sandbox spawn EPERM.
+- Detail: docker compose -f local-db/compose.yml config passed.
+- Detail: docker compose -f local-db/compose.yml ps failed because the Docker daemon is not running.
+- Detail: npm run db:check failed with ECONNREFUSED on 127.0.0.1:3307 because local MySQL is not running.
+
+
+### 2026-03-24T18:21:27Z | manual-action | Phase 9 still needs local DB startup and staging promotion
+- Status: captured
+- Detail: Start Docker Desktop so local-db MySQL can run on 127.0.0.1:3307.
+- Detail: After Docker is up, run npm run db:migrate, npm run db:seed, and npm run db:check from web/.
+- Detail: Create the intended commit boundary from the current dirty main worktree before pushing through the staging workflow.
+
+
+### 2026-03-24T18:24:06Z | discovery | User reported Docker Desktop is now running
+- Status: captured
+- Detail: Resuming the blocked Phase 9 local DB bootstrap path to verify MySQL startup, migrations, seed, and DB health checks.
+
+
+### 2026-03-24T18:25:16Z | discovery | DB bootstrap blocked by db-migrate env-loading defect
+- Status: captured
+- Detail: web/.env.local already contains APP_ENV and DB variables.
+- Detail: web/scripts/db-migrate.mjs was reading process.env without calling the same next-env loader used by db-check and db-seed.
+- Detail: This prevented the documented npm run db:migrate bootstrap step from working even with the env file present.
+
+
+### 2026-03-24T18:25:27Z | change | Patched db-migrate env loading
+- Status: captured
+- Detail: Updated web/scripts/db-migrate.mjs to load env files via @next/env before reading APP_ENV and DB variables.
+- Detail: This aligns db-migrate with db-seed and db-check so the documented bootstrap commands use web/.env.local consistently.
+
+
+### 2026-03-24T18:26:36Z | verify | Phase 9 DB bootstrap rerun succeeded with Docker available
+- Status: captured
+- Detail: docker compose -f local-db/compose.yml up -d reported app-local-mysql running.
+- Detail: docker compose -f local-db/compose.yml ps reported app-local-mysql healthy on 127.0.0.1:3307.
+- Detail: npm run db:migrate passed after patching db-migrate env loading.
+- Detail: npm run db:seed passed and loaded deterministic local seed records.
+- Detail: npm run db:check passed with 2 of 2 migrations applied and application read query OK.
+- Detail: npm run lint passed in web/.
+- Detail: npm run typecheck passed in web/.
+
+
+### 2026-03-24T18:27:15Z | decision | Proceeding from local verification to commit and staging promotion
+- Status: captured
+- Detail: The local DB bootstrap path now passes with Docker running.
+- Detail: The staging workflow triggers on pushes to main, so the remaining Phase 9 step is to package the validated worktree and push it to origin.
+

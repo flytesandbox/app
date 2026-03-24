@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "check:env-boundaries": "node ./scripts/check-env-boundaries.mjs",
     "test:e2e": "playwright test",
     "db:migrate": "node ./scripts/db-migrate.mjs",
     "db:seed": "node ./scripts/db-seed.mjs",
-    "db:check": "node ./scripts/db-check.mjs"
+    "db:check": "node ./scripts/db-check.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.1",
