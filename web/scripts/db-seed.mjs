@@ -14,6 +14,7 @@ const projectRoot = path.resolve(__dirname, '..')
 loadEnvConfig(projectRoot)
 
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1'])
+const APP_ENV_VALUES = new Set(['local', 'ci', 'staging', 'prod'])
 
 function requireEnv(name) {
   const value = process.env[name]?.trim()
@@ -35,7 +36,27 @@ function readBoolean(name, defaultValue = false) {
   )
 }
 
+function readAppEnv() {
+  const value = requireEnv('APP_ENV')
+
+  if (!APP_ENV_VALUES.has(value)) {
+    throw new Error(
+      `APP_ENV must be one of: ${Array.from(APP_ENV_VALUES).join(', ')}`,
+    )
+  }
+
+  return value
+}
+
 function getLocalDatabaseUrl() {
+  const appEnv = readAppEnv()
+
+  if (appEnv !== 'local') {
+    throw new Error(
+      `Refusing to run local seed script when APP_ENV=${appEnv}. This script is local-only.`,
+    )
+  }
+
   const enabled = readBoolean('DATABASE_ENABLED', false)
 
   if (!enabled) {
@@ -54,6 +75,12 @@ function getLocalDatabaseUrl() {
   if (!LOCAL_HOSTS.has(parsed.hostname)) {
     throw new Error(
       `Refusing to seed non-local database host "${parsed.hostname}". This script is local-only.`,
+    )
+  }
+
+  if (parsed.pathname.replace(/^\//, '') !== 'app_local') {
+    throw new Error(
+      'Refusing to seed a non-local database name. DATABASE_URL must target app_local.',
     )
   }
 

@@ -38,6 +38,21 @@ env:
   DB_POOL_LIMIT: 10
 
 jobs:
+  env-boundary-audit:
+    name: env-boundary-audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check environment boundary guardrails
+        run: node web/scripts/check-env-boundaries.mjs
+
   lint:
     name: lint
     runs-on: ubuntu-latest

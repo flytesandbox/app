@@ -15,6 +15,37 @@ const migrationsDir = path.join(projectRoot, 'db', 'migrations')
 
 loadEnvConfig(projectRoot)
 
+const LOCAL_DB_HOSTS = new Set([
+  '127.0.0.1',
+  'localhost',
+  '::1',
+  'host.docker.internal',
+  '0.0.0.0',
+  '0.0.0.1',
+])
+const APP_ENV_RULES = {
+  local: {
+    database: 'app_local',
+    localOnly: true,
+    requireSsl: false,
+  },
+  ci: {
+    database: 'app_ci',
+    localOnly: true,
+    requireSsl: false,
+  },
+  staging: {
+    database: 'app_staging',
+    localOnly: false,
+    requireSsl: true,
+  },
+  prod: {
+    database: 'app_prod',
+    localOnly: false,
+    requireSsl: true,
+  },
+}
+
 function requireEnv(name) {
   const value = process.env[name]?.trim()
   if (!value) {
@@ -35,7 +66,19 @@ function readBoolean(name, defaultValue = false) {
   )
 }
 
-function validateMysqlUrl(name, value) {
+function readAppEnv() {
+  const value = requireEnv('APP_ENV')
+
+  if (!Object.hasOwn(APP_ENV_RULES, value)) {
+    throw new Error(
+      `APP_ENV must be one of: ${Object.keys(APP_ENV_RULES).join(', ')}`,
+    )
+  }
+
+  return value
+}
+
+function validateMysqlUrl(name, value, appEnv) {
   let parsed
 
   try {
@@ -56,6 +99,20 @@ function validateMysqlUrl(name, value) {
     throw new Error(`${name} must include a database name`)
   }
 
+  const expectedDatabase = APP_ENV_RULES[appEnv].database
+  if (parsed.pathname.replace(/^\//, '') !== expectedDatabase) {
+    throw new Error(`${name} must target ${expectedDatabase} when APP_ENV=${appEnv}`)
+  }
+
+  const isLocalHost = LOCAL_DB_HOSTS.has(parsed.hostname)
+  if (APP_ENV_RULES[appEnv].localOnly && !isLocalHost) {
+    throw new Error(`${name} must stay on local-only DB hosts when APP_ENV=${appEnv}`)
+  }
+
+  if (!APP_ENV_RULES[appEnv].localOnly && isLocalHost) {
+    throw new Error(`${name} must not use local-only DB hosts when APP_ENV=${appEnv}`)
+  }
+
   return value
 }
 
@@ -69,6 +126,7 @@ async function getExpectedMigrationFiles() {
 }
 
 async function main() {
+  const appEnv = readAppEnv()
   const databaseEnabled = readBoolean('DATABASE_ENABLED', false)
 
   if (!databaseEnabled) {
@@ -80,9 +138,14 @@ async function main() {
   const databaseUrl = validateMysqlUrl(
     'DATABASE_URL',
     requireEnv('DATABASE_URL'),
+    appEnv,
   )
 
   const dbSslRequired = readBoolean('DB_SSL_REQUIRED', false)
+
+  if (APP_ENV_RULES[appEnv].requireSsl && !dbSslRequired) {
+    throw new Error(`DB_SSL_REQUIRED must be true when APP_ENV=${appEnv}`)
+  }
 
   const connection = await mysql.createConnection({
     uri: databaseUrl,

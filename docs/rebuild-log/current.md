@@ -259,3 +259,78 @@
 - Status: captured
 - Detail: The staging compose file healthcheck uses wget against http://127.0.0.1:3000/api/health inside the container, reinforcing that the observed failure is not the container-local healthcheck path but the separate host-level ingress probe.
 
+
+### 2026-03-24T15:09:10Z | decision | Harden staging deploy against stray remote probe environment variables
+- Status: captured
+- Detail: Because STAGING_PROBE_IP is absent from GitHub variables yet curl still targets 0.0.0.1, the remaining plausible source is inherited remote shell environment state such as PROBE_IP exported by a profile or prior operator configuration.
+- Detail: Patch the workflow to unset inherited PROBE_SCHEME/PORT/IP/timeouts before optionally exporting GitHub-controlled overrides, and patch deploy/rollback scripts to log the effective probe target and fail fast on invalid 0.0.0.0/8 probe IPs.
+
+
+### 2026-03-24T15:10:03Z | discovery | Direct host curl reaches Traefik but no staging router matches
+- Status: captured
+- Detail: User-provided host checks show 127.0.0.1:443 is listening and curl --resolve staging.mecplans101.com:443:127.0.0.1 reaches Traefik successfully.
+- Detail: The response is HTTP 404 with CN=TRAEFIK DEFAULT CERT rather than a timeout or app response, which indicates the request reached the reverse proxy but no router/service matched Host(staging.mecplans101.com).
+- Detail: That shifts the failure from bad probe reachability to missing or ignored Traefik routing for the app-staging-web container.
+
+
+### 2026-03-24T15:10:48Z | change | Hardened staging probe execution against inherited remote shell state
+- Status: captured
+- Detail: Updated .github/workflows/deploy-staging.yml so the remote SSH block unsets inherited PROBE_SCHEME, PROBE_PORT, PROBE_IP, PROBE_CONNECT_TIMEOUT, and PROBE_MAX_TIME before applying any GitHub-controlled overrides.
+- Detail: Updated infra/scripts/deploy_remote.sh and infra/scripts/rollback_remote.sh to treat empty probe env values as unset, log the effective ingress probe target, and fail fast if PROBE_IP is set to an invalid 0.0.0.0/8 address such as 0.0.0.1.
+
+
+### 2026-03-24T15:10:48Z | verify | Verified probe hardening patch with local diff checks
+- Status: captured
+- Detail: git diff --check on the patched workflow and deploy scripts reported only the existing CRLF warnings and no whitespace errors.
+- Detail: A local bash -n parse check could not run in this host environment because invoking bash returned Access is denied, so script verification is limited to diff review and the minimal textual scope of the patch.
+
+
+### 2026-03-24T15:14:56Z | request | Perform repo-wide environment-boundary hardening audit
+- Status: captured
+- Detail: User requested a deep analysis of setup vision, phase system, current project facets, CI pipeline, server-side deploy path, and boundary controls so development-only content/data cannot transition to staging and staging cannot transition to production.
+- Detail: Starting with a repo-wide audit of workflows, infra, runtime env validation, phase/rebuild docs, and existing environment-specific contracts before applying guardrail changes.
+
+
+### 2026-03-24T15:19:54Z | discovery | Environment-boundary audit found enforcement gaps between repo policy and runtime/deploy rails
+- Status: captured
+- Detail: Phase 1 and Phase 2 docs lock separate local, staging, and prod identities with fake/sanitized-only data outside production, but current runtime validation does not read APP_ENV and therefore does not enforce environment identity at startup.
+- Detail: PR validation intentionally uses CI-local loopback URLs and test auth placeholders, which is acceptable for CI, but the app/runtime rails currently do not independently prevent local-style origins or DB hosts from being reused in staging/prod.
+- Detail: The PHASE5_TEST_AUTH bypass is gated only by an env var, so an accidental enablement outside local/CI would weaken route protection.
+- Detail: Staging deploy workflow and remote scripts validate formatting and required values, but they do not yet require APP_ENV=staging, tie NEXT_PUBLIC_APP_URL to STAGING_WEB_HOST, or reject local-style database hosts for staging.
+- Detail: The repo currently has no production deploy workflow or production compose path, so staging-to-production separation is documented but not yet implemented as executable repo rail.
+
+
+### 2026-03-24T15:23:05Z | change | Begin environment-boundary hardening edit batch
+- Status: captured
+- Detail: Applying runtime APP_ENV boundary validation, DB host/name rails, test-auth gating, stronger staging workflow/deploy checks, a repo boundary audit script, and updated example/docs files so local/CI/staging identities are enforced in code and CI rather than only documented.
+
+
+### 2026-03-24T15:31:22Z | discovery | DB utility scripts still ran outside the new runtime boundary validator
+- Status: captured
+- Detail: web/scripts/db-migrate.mjs, db-check.mjs, and db-seed.mjs are execution paths that can run independently of Next runtime startup, so they need their own APP_ENV/database boundary checks to fully close the local-to-staging and staging-to-prod leak paths.
+
+
+### 2026-03-24T15:35:01Z | change | Applied environment-boundary hardening across runtime, utility scripts, CI, and staging deploy rails
+- Status: captured
+- Detail: web/lib/env/server.ts now enforces APP_ENV identity, environment-specific public origins, Clerk key family rules, and rejects PHASE5_TEST_AUTH outside local/CI.
+- Detail: web/lib/db/config.ts plus db-migrate.mjs, db-check.mjs, and db-seed.mjs now bind DB host/database-name expectations to APP_ENV so local/CI stay on local-only DB hosts while staging/prod reject local DB hosts and require their own database names.
+- Detail: .github/workflows/pr.yml and deploy-staging.yml now run web/scripts/check-env-boundaries.mjs; deploy-staging.yml also validates APP_ENV=staging, /app/staging, staging HTTPS origins, and non-local app_staging DB URLs before build/push or remote deploy.
+- Detail: infra/scripts/deploy_remote.sh and rollback_remote.sh now enforce staging-only origin/path/DB boundary checks on the transferred runtime env before service replacement.
+- Detail: Added docs/rebuild/environment-boundary-guardrails.md plus sanitized staging runtime example placeholders so the boundary policy is documented and tracked in repo-owned examples instead of implied.
+
+
+### 2026-03-24T15:35:01Z | verify | Verified environment-boundary hardening with targeted audit, typecheck, and source lint
+- Status: captured
+- Detail: node web/scripts/check-env-boundaries.mjs passed.
+- Detail: npx tsc --noEmit passed in web after the runtime and script boundary changes.
+- Detail: Targeted eslint for the edited runtime and script files passed.
+- Detail: git diff --check reported only existing CRLF conversion warnings and no whitespace errors.
+- Detail: A full npm run lint is not currently a useful repo-wide signal because ESLint traverses checked-in/generated .next-phase7 output and reports thousands of unrelated generated-file violations.
+- Detail: npm run build compiled the app but the local Windows host failed at the later Next build spawn step with EPERM, so build verification here is limited to compile progress plus direct tsc success rather than a clean end-to-end Next build exit.
+
+
+### 2026-03-24T15:35:01Z | risk | Production separation remains a documented-but-unimplemented repo rail
+- Status: captured
+- Detail: The repo still lacks a production compose file and production deploy workflow, so staging-to-production isolation is not yet enforced by executable repository code.
+- Detail: GitHub environment secret uniqueness across staging vs prod and live Traefik router state remain external/operator concerns that this repo can validate only indirectly.
+

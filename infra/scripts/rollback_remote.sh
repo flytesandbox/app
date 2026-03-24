@@ -12,7 +12,7 @@ GIT_SHA="${2:-${GIT_SHA:-unknown}}"
 
 PROBE_SCHEME="${PROBE_SCHEME:-https}"
 PROBE_PORT="${PROBE_PORT:-443}"
-PROBE_IP="${PROBE_IP-127.0.0.1}"
+PROBE_IP="${PROBE_IP:-127.0.0.1}"
 PROBE_CONNECT_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-5}"
 PROBE_MAX_TIME="${PROBE_MAX_TIME:-10}"
 CONTAINER_HEALTH_ATTEMPTS="${CONTAINER_HEALTH_ATTEMPTS:-24}"
@@ -116,6 +116,23 @@ validate_http_url() {
   esac
 }
 
+validate_staging_origin() {
+  local name="$1"
+  local value="$2"
+  local expected_host="$3"
+
+  validate_http_url "$name" "$value"
+
+  case "$value" in
+    "https://${expected_host}"|"https://${expected_host}/")
+      ;;
+    *)
+      echo "[rollback] $name must be the staging origin https://${expected_host}" >&2
+      exit 1
+      ;;
+  esac
+}
+
 validate_clerk_publishable_key() {
   local value="$1"
 
@@ -177,7 +194,7 @@ validate_authorized_parties() {
     fi
 
     found_any=1
-    validate_http_url "CLERK_AUTHORIZED_PARTIES" "$part"
+    validate_staging_origin "CLERK_AUTHORIZED_PARTIES" "$part" "$STAGING_WEB_HOST"
     if [ "$part" = "$required_origin" ]; then
       found_required=1
     fi
@@ -211,7 +228,7 @@ validate_runtime_env_contract() {
   local clerk_jwt_key
 
   next_public_app_url="$(require_runtime_env "NEXT_PUBLIC_APP_URL")"
-  validate_http_url "NEXT_PUBLIC_APP_URL" "$next_public_app_url"
+  validate_staging_origin "NEXT_PUBLIC_APP_URL" "$next_public_app_url" "$STAGING_WEB_HOST"
 
   clerk_authorized_parties="$(require_runtime_env "CLERK_AUTHORIZED_PARTIES")"
   validate_authorized_parties "$clerk_authorized_parties" "$next_public_app_url"
@@ -229,6 +246,38 @@ validate_runtime_env_contract() {
 
   clerk_jwt_key="$(require_runtime_env "CLERK_JWT_KEY")"
   validate_jwt_public_key "$clerk_jwt_key"
+}
+
+validate_staging_mysql_url() {
+  local name="$1"
+  local value="$2"
+
+  reject_wrapping_quotes "$name" "$value"
+
+  case "$value" in
+    mysql://*)
+      ;;
+    *)
+      echo "[rollback] $name must use mysql://" >&2
+      exit 1
+      ;;
+  esac
+
+  case "$value" in
+    *"@127.0.0.1"*|*"@localhost"*|*"@::1"*|*"@host.docker.internal"*|*"@0."*)
+      echo "[rollback] $name must not use a local-only database host in staging" >&2
+      exit 1
+      ;;
+  esac
+
+  case "$value" in
+    */app_staging|*/app_staging\?*)
+      ;;
+    *)
+      echo "[rollback] $name must target the app_staging database" >&2
+      exit 1
+      ;;
+  esac
 }
 
 env_upsert() {
@@ -276,6 +325,59 @@ load_compose_env() {
   # shellcheck disable=SC1090
   . "$COMPOSE_ENV_FILE"
   set +a
+}
+
+validate_probe_ip() {
+  local value="${1:-}"
+
+  if [ -z "$value" ]; then
+    return 0
+  fi
+
+  case "$value" in
+    0.*)
+      echo "[rollback] PROBE_IP must not use 0.0.0.0/8. Unset it to use the default 127.0.0.1 or set the actual ingress listener IP." >&2
+      exit 1
+      ;;
+  esac
+}
+
+log_probe_configuration() {
+  local resolved_ip="${PROBE_IP:-dns}"
+  echo "[rollback] ingress probe target: ${PROBE_SCHEME}://${STAGING_WEB_HOST}:${PROBE_PORT} via ${resolved_ip}" >&2
+}
+
+validate_staging_runtime_boundary() {
+  local database_enabled="$1"
+  local app_env
+  local db_ssl_required
+
+  app_env="$(require_runtime_env "APP_ENV")"
+  if [ "$app_env" != "staging" ]; then
+    echo "[rollback] APP_ENV must equal staging for the staging deploy rail" >&2
+    exit 1
+  fi
+
+  if [ "$APP_ROOT" != "/app/staging" ]; then
+    echo "[rollback] APP_ROOT must remain /app/staging for the staging deploy rail" >&2
+    exit 1
+  fi
+
+  if [ "$STAGING_WEB_HOST" != "staging.mecplans101.com" ]; then
+    echo "[rollback] STAGING_WEB_HOST must equal staging.mecplans101.com" >&2
+    exit 1
+  fi
+
+  if [ "$database_enabled" = "true" ]; then
+    db_ssl_required="$(parse_boolean "DB_SSL_REQUIRED" "$(env_get "DB_SSL_REQUIRED" "$RUNTIME_ENV_FILE")")"
+    if [ "$db_ssl_required" != "true" ]; then
+      echo "[rollback] DB_SSL_REQUIRED must be true when DATABASE_ENABLED=true in staging" >&2
+      exit 1
+    fi
+
+    validate_staging_mysql_url "DATABASE_URL" "$(require_runtime_env "DATABASE_URL")"
+    validate_staging_mysql_url "DATABASE_MIGRATION_URL" "$(require_runtime_env "DATABASE_MIGRATION_URL")"
+  fi
 }
 
 resolve_app_root_path() {
@@ -450,6 +552,8 @@ trap 'rc=$?; trap - EXIT; cleanup "$rc"; exit "$rc"' EXIT
 load_compose_env
 resolve_runtime_env_file
 validate_runtime_env_contract
+DATABASE_ENABLED="$(parse_boolean "DATABASE_ENABLED" "$(env_get "DATABASE_ENABLED" "$RUNTIME_ENV_FILE")")"
+validate_staging_runtime_boundary "$DATABASE_ENABLED"
 
 if [ -z "${IMAGE_NAME:-}" ]; then
   echo "IMAGE_NAME is missing from $COMPOSE_ENV_FILE" >&2
@@ -460,6 +564,9 @@ if [ -z "${STAGING_WEB_HOST:-}" ]; then
   echo "STAGING_WEB_HOST is missing from $COMPOSE_ENV_FILE" >&2
   exit 1
 fi
+
+validate_probe_ip "${PROBE_IP:-}"
+log_probe_configuration
 
 CURRENT_TAG="${IMAGE_TAG:-}"
 if [ -z "$ROLLBACK_TAG" ]; then

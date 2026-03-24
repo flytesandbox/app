@@ -36,7 +36,12 @@ const TEST_AUTH_CONTEXTS: Record<
 }
 
 export function isPhase5TestAuthEnabled(): boolean {
-  return process.env.PHASE5_TEST_AUTH === '1'
+  if (process.env.PHASE5_TEST_AUTH !== '1') {
+    return false
+  }
+
+  const appEnv = process.env.APP_ENV?.trim()
+  return appEnv === 'local' || appEnv === 'ci'
 }
 
 export function parseTestAuthScenario(

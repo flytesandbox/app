@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:env-boundaries": "node ./scripts/check-env-boundaries.mjs",
     "test:e2e": "playwright test",
     "db:migrate": "node ./scripts/db-migrate.mjs",
     "db:seed": "node ./scripts/db-seed.mjs",

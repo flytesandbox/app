@@ -31,6 +31,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node for repo guardrail checks
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check environment boundary guardrails
+        run: node web/scripts/check-env-boundaries.mjs
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -64,13 +72,17 @@ jobs:
 
       - name: Validate staging DB mode and URLs
         env:
+          APP_ENV: ${{ vars.APP_ENV }}
           DATABASE_ENABLED: ${{ vars.DATABASE_ENABLED }}
+          DB_SSL_REQUIRED: ${{ vars.DB_SSL_REQUIRED }}
           STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           STAGING_DATABASE_MIGRATION_URL: ${{ secrets.STAGING_DATABASE_MIGRATION_URL }}
         run: |
           python - <<'PY'
           import os
           from urllib.parse import urlparse
+
+          LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0", "0.0.0.1", "host.docker.internal"}
 
           def parse_bool(name: str) -> bool:
               value = os.environ.get(name, "").strip().lower()
@@ -94,10 +106,25 @@ jobs:
                   raise SystemExit(f"GitHub staging secret {name} must use mysql://")
               if not parsed.hostname:
                   raise SystemExit(f"GitHub staging secret {name} must include a hostname")
+              if parsed.hostname in LOCAL_HOSTS:
+                  raise SystemExit(
+                      f"GitHub staging secret {name} must not use a local-only hostname"
+                  )
               if parsed.path in {"", "/"}:
                   raise SystemExit(f"GitHub staging secret {name} must include a database name")
+              if parsed.path.lstrip("/") != "app_staging":
+                  raise SystemExit(
+                      f"GitHub staging secret {name} must target the app_staging database"
+                  )
+
+          if os.environ.get("APP_ENV", "").strip() != "staging":
+              raise SystemExit("GitHub staging variable APP_ENV must equal staging")
 
           if parse_bool("DATABASE_ENABLED"):
+              if not parse_bool("DB_SSL_REQUIRED"):
+                  raise SystemExit(
+                      "GitHub staging variable DB_SSL_REQUIRED must be true when DATABASE_ENABLED=true"
+                  )
               validate_mysql_url("STAGING_DATABASE_URL")
               validate_mysql_url("STAGING_DATABASE_MIGRATION_URL")
               print("DATABASE_ENABLED=true; staging DB URLs validated.")
@@ -107,8 +134,11 @@ jobs:
 
       - name: Validate staging app auth/runtime contract
         env:
+          APP_ENV: ${{ vars.APP_ENV }}
           NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
           CLERK_AUTHORIZED_PARTIES: ${{ vars.CLERK_AUTHORIZED_PARTIES }}
+          STAGING_DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+          STAGING_WEB_HOST: ${{ vars.STAGING_WEB_HOST }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           CLERK_JWT_KEY: ${{ secrets.CLERK_JWT_KEY }}
@@ -116,6 +146,8 @@ jobs:
           python - <<'PY'
           import os
           from urllib.parse import urlparse
+
+          LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0", "0.0.0.1", "host.docker.internal"}
 
           def require(name: str) -> str:
               value = os.environ.get(name, "").strip()
@@ -138,6 +170,30 @@ jobs:
                   raise SystemExit(f"GitHub staging setting {name} must include a hostname")
               return value
 
+          def validate_staging_origin(name: str, value: str, expected_host: str) -> str:
+              parsed = urlparse(validate_http_url(name, value))
+              if parsed.scheme != "https":
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must use https:// for staging"
+                  )
+              if parsed.hostname != expected_host:
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must use host {expected_host}"
+                  )
+              if parsed.hostname in LOCAL_HOSTS:
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must not use a local-only hostname"
+                  )
+              if parsed.path not in {"", "/"}:
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must be an origin only and not include a path"
+                  )
+              if parsed.params or parsed.query or parsed.fragment:
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must not include params, query strings, or fragments"
+                  )
+              return value
+
           def validate_clerk_key(name: str, value: str, prefixes: tuple[str, ...]) -> str:
               reject_wrapping_quotes(name, value)
               if not value.startswith(prefixes):
@@ -156,7 +212,25 @@ jobs:
                   f"GitHub staging setting {name} is not a recognizable Clerk key"
               )
 
-          app_url = validate_http_url("NEXT_PUBLIC_APP_URL", require("NEXT_PUBLIC_APP_URL"))
+          if require("APP_ENV") != "staging":
+              raise SystemExit("GitHub staging setting APP_ENV must equal staging")
+
+          if require("STAGING_DEPLOY_PATH") != "/app/staging":
+              raise SystemExit(
+                  "GitHub staging setting STAGING_DEPLOY_PATH must equal /app/staging"
+              )
+
+          staging_web_host = require("STAGING_WEB_HOST")
+          if staging_web_host != "staging.mecplans101.com":
+              raise SystemExit(
+                  "GitHub staging setting STAGING_WEB_HOST must equal staging.mecplans101.com"
+              )
+
+          app_url = validate_staging_origin(
+              "NEXT_PUBLIC_APP_URL",
+              require("NEXT_PUBLIC_APP_URL"),
+              staging_web_host,
+          )
           authorized_parties = require("CLERK_AUTHORIZED_PARTIES")
 
           seen_required_origin = False
@@ -166,7 +240,7 @@ jobs:
               if not part:
                   continue
               seen_any_authorized_party = True
-              validate_http_url("CLERK_AUTHORIZED_PARTIES", part)
+              validate_staging_origin("CLERK_AUTHORIZED_PARTIES", part, staging_web_host)
               if part == app_url:
                   seen_required_origin = True
 
@@ -364,6 +438,7 @@ jobs:
           export GHCR_USERNAME='${{ github.actor }}'
           export GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}'
           export APP_ROOT='${{ vars.STAGING_DEPLOY_PATH }}'
+          unset PROBE_SCHEME PROBE_PORT PROBE_IP PROBE_CONNECT_TIMEOUT PROBE_MAX_TIME
           [ -n "${STAGING_PROBE_SCHEME:-}" ] && export PROBE_SCHEME="$STAGING_PROBE_SCHEME"
           [ -n "${STAGING_PROBE_PORT:-}" ] && export PROBE_PORT="$STAGING_PROBE_PORT"
           [ -n "${STAGING_PROBE_IP:-}" ] && export PROBE_IP="$STAGING_PROBE_IP"

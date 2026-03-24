@@ -67,6 +67,9 @@ Step 1 checks completed:
 - `.env.example` converted to placeholder-only full contract
 - no secrets staged for commit
 
+Environment-boundary follow-up:
+- see `docs/rebuild/environment-boundary-guardrails.md` for the cross-phase audit and executable guardrails that now keep local/CI/staging identities from drifting together
+
 - verified Phase 7 notes file through git diff intent-to-add flow
 - verified env ignore rules with git check-ignore
 - identified untracked repo state with no initial local commit

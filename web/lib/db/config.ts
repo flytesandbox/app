@@ -16,8 +16,26 @@ export type DbConfig =
       dbPoolLimit: number
     }
 
+const APP_ENV_VALUES = ['local', 'ci', 'staging', 'prod'] as const
+const LOCAL_DB_HOSTS = new Set([
+  '127.0.0.1',
+  'localhost',
+  '::1',
+  'host.docker.internal',
+  '0.0.0.0',
+  '0.0.0.1',
+])
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on'])
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off', ''])
+
+type AppEnv = (typeof APP_ENV_VALUES)[number]
+
+const EXPECTED_DATABASE_NAMES: Record<AppEnv, string> = {
+  local: 'app_local',
+  ci: 'app_ci',
+  staging: 'app_staging',
+  prod: 'app_prod',
+}
 
 let cachedConfig: DbConfig | null = null
 
@@ -80,7 +98,19 @@ function requireEnv(name: string, value: string | undefined): string {
   return normalized
 }
 
-function validateMysqlUrl(name: string, value: string): string {
+function readAppEnv(name: string, value: string | undefined): AppEnv {
+  const normalized = requireEnv(name, value)
+
+  if ((APP_ENV_VALUES as readonly string[]).includes(normalized)) {
+    return normalized as AppEnv
+  }
+
+  throw new Error(
+    `[db/config] ${name} must be one of: ${APP_ENV_VALUES.join(', ')}`,
+  )
+}
+
+function validateMysqlUrl(name: string, value: string, appEnv: AppEnv): string {
   let parsed: URL
 
   try {
@@ -101,6 +131,29 @@ function validateMysqlUrl(name: string, value: string): string {
     throw new Error(`[db/config] ${name} must include a database name`)
   }
 
+  const databaseName = parsed.pathname.replace(/^\//, '')
+  const expectedDatabaseName = EXPECTED_DATABASE_NAMES[appEnv]
+
+  if (databaseName !== expectedDatabaseName) {
+    throw new Error(
+      `[db/config] ${name} must target ${expectedDatabaseName} when APP_ENV=${appEnv}`,
+    )
+  }
+
+  const isLocalHost = LOCAL_DB_HOSTS.has(parsed.hostname)
+
+  if ((appEnv === 'local' || appEnv === 'ci') && !isLocalHost) {
+    throw new Error(
+      `[db/config] ${name} must stay on local-only DB hosts when APP_ENV=${appEnv}`,
+    )
+  }
+
+  if ((appEnv === 'staging' || appEnv === 'prod') && isLocalHost) {
+    throw new Error(
+      `[db/config] ${name} must not use local-only DB hosts when APP_ENV=${appEnv}`,
+    )
+  }
+
   return value
 }
 
@@ -109,6 +162,7 @@ export function getDbConfig(): DbConfig {
     return cachedConfig
   }
 
+  const appEnv = readAppEnv('APP_ENV', process.env.APP_ENV)
   const enabled = readBooleanEnv(
     'DATABASE_ENABLED',
     process.env.DATABASE_ENABLED,
@@ -133,20 +187,28 @@ export function getDbConfig(): DbConfig {
     return cachedConfig
   }
 
+  const dbSslRequired = readBooleanEnv(
+    'DB_SSL_REQUIRED',
+    process.env.DB_SSL_REQUIRED,
+    false,
+  )
+
+  if ((appEnv === 'staging' || appEnv === 'prod') && !dbSslRequired) {
+    throw new Error(
+      `[db/config] DB_SSL_REQUIRED must be true when APP_ENV=${appEnv}`,
+    )
+  }
+
   const databaseUrl = validateMysqlUrl(
     'DATABASE_URL',
     requireEnv('DATABASE_URL', process.env.DATABASE_URL),
+    appEnv,
   )
 
   const databaseMigrationUrl = validateMysqlUrl(
     'DATABASE_MIGRATION_URL',
     requireEnv('DATABASE_MIGRATION_URL', process.env.DATABASE_MIGRATION_URL),
-  )
-
-  const dbSslRequired = readBooleanEnv(
-    'DB_SSL_REQUIRED',
-    process.env.DB_SSL_REQUIRED,
-    false,
+    appEnv,
   )
 
   cachedConfig = {

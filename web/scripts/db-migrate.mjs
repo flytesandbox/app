@@ -2,6 +2,37 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import mysql from 'mysql2/promise'
 
+const LOCAL_DB_HOSTS = new Set([
+  '127.0.0.1',
+  'localhost',
+  '::1',
+  'host.docker.internal',
+  '0.0.0.0',
+  '0.0.0.1',
+])
+const APP_ENV_RULES = {
+  local: {
+    database: 'app_local',
+    localOnly: true,
+    requireSsl: false,
+  },
+  ci: {
+    database: 'app_ci',
+    localOnly: true,
+    requireSsl: false,
+  },
+  staging: {
+    database: 'app_staging',
+    localOnly: false,
+    requireSsl: true,
+  },
+  prod: {
+    database: 'app_prod',
+    localOnly: false,
+    requireSsl: true,
+  },
+}
+
 function requireEnv(name) {
   const value = process.env[name]?.trim()
   if (!value) {
@@ -16,6 +47,18 @@ function readBooleanEnv(name, defaultValue = false) {
   if (['1', 'true', 'yes', 'on'].includes(raw)) return true
   if (['0', 'false', 'no', 'off'].includes(raw)) return false
   throw new Error(`[db-migrate] ${name} must be a boolean-like value`)
+}
+
+function readAppEnv() {
+  const value = requireEnv('APP_ENV')
+
+  if (!Object.hasOwn(APP_ENV_RULES, value)) {
+    throw new Error(
+      `[db-migrate] APP_ENV must be one of: ${Object.keys(APP_ENV_RULES).join(', ')}`,
+    )
+  }
+
+  return value
 }
 
 function parseMysqlUrl(connectionUrl) {
@@ -43,7 +86,37 @@ function parseMysqlUrl(connectionUrl) {
   }
 }
 
+function validateConnectionBoundary(appEnv, connection, dbSslRequired) {
+  const rule = APP_ENV_RULES[appEnv]
+
+  if (connection.database !== rule.database) {
+    throw new Error(
+      `[db-migrate] DATABASE_MIGRATION_URL must target ${rule.database} when APP_ENV=${appEnv}`,
+    )
+  }
+
+  const isLocalHost = LOCAL_DB_HOSTS.has(connection.host)
+  if (rule.localOnly && !isLocalHost) {
+    throw new Error(
+      `[db-migrate] DATABASE_MIGRATION_URL must stay on local-only DB hosts when APP_ENV=${appEnv}`,
+    )
+  }
+
+  if (!rule.localOnly && isLocalHost) {
+    throw new Error(
+      `[db-migrate] DATABASE_MIGRATION_URL must not use local-only DB hosts when APP_ENV=${appEnv}`,
+    )
+  }
+
+  if (rule.requireSsl && !dbSslRequired) {
+    throw new Error(
+      `[db-migrate] DB_SSL_REQUIRED must be true when APP_ENV=${appEnv}`,
+    )
+  }
+}
+
 async function main() {
+  const appEnv = readAppEnv()
   const migrationUrl = requireEnv('DATABASE_MIGRATION_URL')
   const dbSslRequired = readBooleanEnv('DB_SSL_REQUIRED', false)
   const migrationsDir = path.resolve(process.cwd(), 'db/migrations')
@@ -57,6 +130,7 @@ async function main() {
   }
 
   const connection = parseMysqlUrl(migrationUrl)
+  validateConnectionBoundary(appEnv, connection, dbSslRequired)
 
   const client = await mysql.createConnection({
     host: connection.host,
