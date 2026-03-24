@@ -119,11 +119,28 @@ function validateMysqlUrl(name, value, expectedDatabase, options = {}) {
 
 async function readText(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath)
-  return fs.readFile(absolutePath, 'utf8')
+
+  try {
+    return await fs.readFile(absolutePath, 'utf8')
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      fail(
+        `${relativePath} is missing from the repository. Required boundary example/config files must be tracked.`,
+      )
+      return null
+    }
+
+    throw error
+  }
 }
 
 async function validateLocalEnvExample() {
-  const env = parseEnvFile(await readText('web/.env.example'))
+  const text = await readText('web/.env.example')
+  if (text === null) {
+    return
+  }
+
+  const env = parseEnvFile(text)
 
   expect(env.APP_ENV === 'local', 'web/.env.example APP_ENV must be local')
   validateOrigin(
@@ -163,7 +180,12 @@ async function validateLocalEnvExample() {
 }
 
 async function validateStagingRuntimeExample() {
-  const env = parseEnvFile(await readText('infra/compose/staging/runtime.env.example'))
+  const text = await readText('infra/compose/staging/runtime.env.example')
+  if (text === null) {
+    return
+  }
+
+  const env = parseEnvFile(text)
 
   expect(
     env.APP_ENV === 'staging',
@@ -200,8 +222,14 @@ async function validateStagingRuntimeExample() {
 }
 
 async function validateStagingComposeFiles() {
-  const example = parseEnvFile(await readText('infra/compose/staging/.env.example'))
-  const tracked = parseEnvFile(await readText('staging/compose.env'))
+  const exampleText = await readText('infra/compose/staging/.env.example')
+  const trackedText = await readText('staging/compose.env')
+  if (exampleText === null || trackedText === null) {
+    return
+  }
+
+  const example = parseEnvFile(exampleText)
+  const tracked = parseEnvFile(trackedText)
 
   expect(
     example.STAGING_WEB_HOST === 'staging.mecplans101.com',
@@ -224,6 +252,9 @@ async function validateStagingComposeFiles() {
 async function validateWorkflows() {
   const prWorkflow = await readText('.github/workflows/pr.yml')
   const deployWorkflow = await readText('.github/workflows/deploy-staging.yml')
+  if (prWorkflow === null || deployWorkflow === null) {
+    return
+  }
 
   expect(
     prWorkflow.includes('APP_ENV: ci'),

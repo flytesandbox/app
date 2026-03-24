@@ -334,3 +334,32 @@
 - Detail: The repo still lacks a production compose file and production deploy workflow, so staging-to-production isolation is not yet enforced by executable repository code.
 - Detail: GitHub environment secret uniqueness across staging vs prod and live Traefik router state remain external/operator concerns that this repo can validate only indirectly.
 
+
+### 2026-03-24T15:41:55Z | discovery | Confirmed CI audit crash source for environment boundary audit.
+- Status: captured
+- Detail: web/.env.example is ignored by web/.gitignore and therefore absent on GitHub Actions runners.
+- Detail: The audit script expects web/.env.example to exist and crashes with ENOENT instead of reporting a boundary failure.
+
+
+### 2026-03-24T15:42:16Z | decision | Selected remediation for CI environment-boundary audit crash.
+- Status: captured
+- Detail: Update web/.gitignore to stop ignoring web/.env.example so GitHub Actions receives the required example file.
+- Detail: Harden web/scripts/check-env-boundaries.mjs so missing required files surface as audit failures with explicit messages instead of uncaught ENOENT crashes.
+
+
+### 2026-03-24T15:42:47Z | change | Patched environment boundary audit file tracking and missing-file handling.
+- Status: captured
+- Detail: Added !.env.example to web/.gitignore so web/.env.example can be committed and reach CI runners.
+- Detail: Updated web/scripts/check-env-boundaries.mjs to convert missing required files into explicit audit failures instead of uncaught ENOENT crashes.
+
+
+### 2026-03-24T15:43:08Z | verify | Verified environment boundary audit remediation locally.
+- Status: captured
+- Detail: node web/scripts/check-env-boundaries.mjs passed after the patch.
+- Detail: git no longer ignores web/.env.example; the file now appears as untracked and must be committed for GitHub Actions to receive it.
+
+
+### 2026-03-24T15:43:14Z | manual-action | Next repo action required to complete the CI fix.
+- Status: captured
+- Detail: Include web/.env.example in the next commit now that web/.gitignore no longer excludes it. Without that file in git, GitHub Actions will still not have the local environment example available to audit.
+
