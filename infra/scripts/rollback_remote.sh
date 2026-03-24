@@ -12,7 +12,14 @@ GIT_SHA="${2:-${GIT_SHA:-unknown}}"
 
 PROBE_SCHEME="${PROBE_SCHEME:-https}"
 PROBE_PORT="${PROBE_PORT:-443}"
-PROBE_IP="${PROBE_IP:-127.0.0.1}"
+PROBE_IP="${PROBE_IP-127.0.0.1}"
+PROBE_CONNECT_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-5}"
+PROBE_MAX_TIME="${PROBE_MAX_TIME:-10}"
+CONTAINER_HEALTH_ATTEMPTS="${CONTAINER_HEALTH_ATTEMPTS:-24}"
+CONTAINER_HEALTH_DELAY="${CONTAINER_HEALTH_DELAY:-5}"
+INGRESS_PROBE_ATTEMPTS="${INGRESS_PROBE_ATTEMPTS:-24}"
+INGRESS_PROBE_DELAY="${INGRESS_PROBE_DELAY:-5}"
+LAST_PROBE_ERROR=""
 
 ROLLBACK_TAG="${1:-${ROLLBACK_TAG:-}}"
 
@@ -114,24 +121,105 @@ ghcr_login_if_needed() {
 
 probe_path() {
   local path="$1"
-  curl --fail --silent --show-error \
-    --resolve "${STAGING_WEB_HOST}:${PROBE_PORT}:${PROBE_IP}" \
-    "${PROBE_SCHEME}://${STAGING_WEB_HOST}${path}" >/dev/null
+  local url="${PROBE_SCHEME}://${STAGING_WEB_HOST}${path}"
+  local -a curl_args=(
+    --fail
+    --silent
+    --show-error
+    --output /dev/null
+    --connect-timeout "$PROBE_CONNECT_TIMEOUT"
+    --max-time "$PROBE_MAX_TIME"
+  )
+
+  if [ -n "${PROBE_IP:-}" ]; then
+    curl_args+=(--resolve "${STAGING_WEB_HOST}:${PROBE_PORT}:${PROBE_IP}")
+  fi
+
+  if LAST_PROBE_ERROR="$(curl "${curl_args[@]}" "$url" 2>&1)"; then
+    LAST_PROBE_ERROR=""
+    return 0
+  fi
+
+  return 1
+}
+
+get_service_container_id() {
+  compose ps -q "$SERVICE_NAME" | head -n 1
+}
+
+service_health_status() {
+  local container_id="$1"
+  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id"
+}
+
+print_service_diagnostics() {
+  local container_id="${1:-}"
+
+  echo "[rollback] docker compose ps" >&2
+  compose ps "$SERVICE_NAME" >&2 || true
+
+  if [ -n "$container_id" ]; then
+    echo "[rollback] container state" >&2
+    docker inspect --format 'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' "$container_id" >&2 || true
+  fi
+
+  echo "[rollback] recent service logs" >&2
+  compose logs --tail=40 "$SERVICE_NAME" >&2 || true
+}
+
+wait_for_service_health() {
+  local attempts="${1:-$CONTAINER_HEALTH_ATTEMPTS}"
+  local delay="${2:-$CONTAINER_HEALTH_DELAY}"
+  local i
+  local container_id
+  local status
+
+  for ((i = 1; i <= attempts; i += 1)); do
+    container_id="$(get_service_container_id)"
+
+    if [ -z "$container_id" ]; then
+      echo "[rollback] waiting for service container id (${i}/${attempts})" >&2
+      sleep "$delay"
+      continue
+    fi
+
+    status="$(service_health_status "$container_id" 2>/dev/null || true)"
+    case "$status" in
+      healthy|running)
+        return 0
+        ;;
+      unhealthy|exited|dead)
+        echo "[rollback] service state is ${status:-unknown}" >&2
+        print_service_diagnostics "$container_id"
+        return 1
+        ;;
+      *)
+        echo "[rollback] service state is ${status:-unknown} (${i}/${attempts})" >&2
+        ;;
+    esac
+
+    sleep "$delay"
+  done
+
+  print_service_diagnostics "$(get_service_container_id)"
+  return 1
 }
 
 wait_for_probe() {
   local path="$1"
-  local attempts="${2:-24}"
-  local delay="${3:-5}"
+  local attempts="${2:-$INGRESS_PROBE_ATTEMPTS}"
+  local delay="${3:-$INGRESS_PROBE_DELAY}"
   local i
 
   for ((i = 1; i <= attempts; i += 1)); do
     if probe_path "$path"; then
       return 0
     fi
+    echo "[rollback] probe attempt ${i}/${attempts} failed for ${path}: ${LAST_PROBE_ERROR:-curl exited with a non-zero status}" >&2
     sleep "$delay"
   done
 
+  print_service_diagnostics "$(get_service_container_id)"
   return 1
 }
 
@@ -207,18 +295,21 @@ echo "[rollback] recreating service"
 compose up -d "$SERVICE_NAME"
 SERVICE_RECREATED=1
 
-echo "[rollback] waiting for boot"
-sleep 5
-
-echo "[rollback] probing /api/health"
-wait_for_probe "/api/health" 24 5 || {
-  echo "[rollback] health check failed" >&2
+echo "[rollback] waiting for container health"
+wait_for_service_health || {
+  echo "[rollback] container health check failed" >&2
   exit 1
 }
 
-echo "[rollback] probing /api/ready"
-wait_for_probe "/api/ready" 24 5 || {
-  echo "[rollback] readiness check failed" >&2
+echo "[rollback] probing /api/health through ingress"
+wait_for_probe "/api/health" || {
+  echo "[rollback] health check failed through ingress" >&2
+  exit 1
+}
+
+echo "[rollback] probing /api/ready through ingress"
+wait_for_probe "/api/ready" || {
+  echo "[rollback] readiness check failed through ingress" >&2
   exit 1
 }
 

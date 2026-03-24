@@ -148,3 +148,27 @@
 - Detail: User asked for a review of the most recent staging deploy tasks to confirm the work is still aligned with the Phase 7 goal.
 - Detail: User later provided a curl timeout on port 443 and requested a short, high-level change-log update summarizing these prompts.
 
+
+### 2026-03-23T18:34:36Z | request | Review recurring staging deploy error after last task
+- Status: captured
+- Detail: User reported the same staging deploy error occurred again after the most recent task and requested a full review with expanded research for solutions.,Starting from the latest logged staging deploy follow-up and current HEAD 005113a to identify whether the repeated failure is a regression, an unhandled server state, or an observability gap.
+
+
+### 2026-03-23T18:37:15Z | discovery | Recurring staging stall traced to unbounded ingress probe and accidental stray repo file
+- Status: captured
+- Detail: Review of HEAD 005113a found an accidental tracked file under web/app/api/health containing rebuild-log text instead of a code change, so the last task also left repo hygiene issues behind.,infra/scripts/deploy_remote.sh and rollback_remote.sh probe https://STAGING_WEB_HOST on port 443 via curl --resolve without curl connect or max timeouts, so a black-holed 127.0.0.1:443 path can stall far longer than the script's intended retry budget.,Primary-source check confirms curl --resolve only overrides host-to-address resolution while still connecting to the specified host:port pair, and curl documents --connect-timeout plus --max-time as the controls that prevent hangs during slow or unreachable transfers.
+
+
+### 2026-03-23T18:40:52Z | change | Hardened staging probe flow and removed accidental stray file
+- Status: captured
+- Detail: Patched infra/scripts/deploy_remote.sh and infra/scripts/rollback_remote.sh to wait for container health separately from ingress checks, bound curl probe time with PROBE_CONNECT_TIMEOUT and PROBE_MAX_TIME, and emit docker ps/log diagnostics on failure.
+- Detail: Updated .github/workflows/deploy-staging.yml so optional GitHub staging variables can override probe scheme, port, IP, and curl timeout settings without another repo change.
+- Detail: Removed the accidental tracked rebuild-log text file under web/app/api/health that was created by the prior task instead of a code change.
+
+
+### 2026-03-23T18:40:52Z | verify | Repo-side validation completed for recurring probe failure hardening
+- Status: captured
+- Detail: git diff --check reported only expected Windows CRLF conversion warnings and no whitespace errors.
+- Detail: Git Bash syntax validation succeeded for infra/scripts/deploy_remote.sh.
+- Detail: Git Bash syntax validation for infra/scripts/rollback_remote.sh could not complete on this host because bash.exe hit the repo's known Windows signal-pipe error, so rollback validation is limited to mirrored diff review plus the successful deploy script syntax check.
+

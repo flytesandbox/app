@@ -250,6 +250,11 @@ jobs:
           STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
           STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+          STAGING_PROBE_SCHEME: ${{ vars.STAGING_PROBE_SCHEME }}
+          STAGING_PROBE_PORT: ${{ vars.STAGING_PROBE_PORT }}
+          STAGING_PROBE_IP: ${{ vars.STAGING_PROBE_IP }}
+          STAGING_PROBE_CONNECT_TIMEOUT: ${{ vars.STAGING_PROBE_CONNECT_TIMEOUT }}
+          STAGING_PROBE_MAX_TIME: ${{ vars.STAGING_PROBE_MAX_TIME }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -p "$STAGING_SSH_PORT" \
             "$STAGING_SSH_USER@$STAGING_SSH_HOST" <<EOF
@@ -257,6 +262,11 @@ jobs:
           export GHCR_USERNAME='${{ github.actor }}'
           export GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}'
           export APP_ROOT='${{ vars.STAGING_DEPLOY_PATH }}'
+          [ -n "${STAGING_PROBE_SCHEME:-}" ] && export PROBE_SCHEME="$STAGING_PROBE_SCHEME"
+          [ -n "${STAGING_PROBE_PORT:-}" ] && export PROBE_PORT="$STAGING_PROBE_PORT"
+          [ -n "${STAGING_PROBE_IP:-}" ] && export PROBE_IP="$STAGING_PROBE_IP"
+          [ -n "${STAGING_PROBE_CONNECT_TIMEOUT:-}" ] && export PROBE_CONNECT_TIMEOUT="$STAGING_PROBE_CONNECT_TIMEOUT"
+          [ -n "${STAGING_PROBE_MAX_TIME:-}" ] && export PROBE_MAX_TIME="$STAGING_PROBE_MAX_TIME"
           chmod +x '${{ vars.STAGING_DEPLOY_PATH }}/deploy_remote.sh' '${{ vars.STAGING_DEPLOY_PATH }}/rollback_remote.sh'
           bash '${{ vars.STAGING_DEPLOY_PATH }}/deploy_remote.sh' '${{ github.sha }}' '${{ github.sha }}'
           EOF
