@@ -66,6 +66,170 @@ parse_boolean() {
   esac
 }
 
+trim_env_value() {
+  local value="${1:-}"
+
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+require_runtime_env() {
+  local name="$1"
+  local value
+
+  value="$(trim_env_value "$(env_get "$name" "$RUNTIME_ENV_FILE")")"
+  if [ -z "$value" ]; then
+    echo "[deploy] Missing required runtime env value: $name" >&2
+    exit 1
+  fi
+
+  printf '%s' "$value"
+}
+
+reject_wrapping_quotes() {
+  local name="$1"
+  local value="$2"
+
+  case "$value" in
+    \"*\"|\'*\')
+      echo "[deploy] $name must be stored without wrapping quotes. Paste the raw value only." >&2
+      exit 1
+      ;;
+  esac
+}
+
+validate_http_url() {
+  local name="$1"
+  local value="$2"
+
+  reject_wrapping_quotes "$name" "$value"
+
+  case "$value" in
+    http://*|https://*)
+      ;;
+    *)
+      echo "[deploy] $name must use http:// or https://" >&2
+      exit 1
+      ;;
+  esac
+}
+
+validate_clerk_publishable_key() {
+  local value="$1"
+
+  reject_wrapping_quotes "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" "$value"
+
+  case "$value" in
+    pk_test_*|pk_live_*)
+      ;;
+    *)
+      echo "[deploy] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must start with pk_test_ or pk_live_. Update staging with the real Clerk publishable key and remove any wrapping quotes." >&2
+      exit 1
+      ;;
+  esac
+}
+
+validate_clerk_secret_key() {
+  local value="$1"
+
+  reject_wrapping_quotes "CLERK_SECRET_KEY" "$value"
+
+  case "$value" in
+    sk_test_*|sk_live_*)
+      ;;
+    *)
+      echo "[deploy] CLERK_SECRET_KEY must start with sk_test_ or sk_live_. Update staging with the real Clerk secret key and remove any wrapping quotes." >&2
+      exit 1
+      ;;
+  esac
+}
+
+clerk_key_family() {
+  local value="$1"
+
+  case "$value" in
+    *_test_*)
+      printf 'test'
+      ;;
+    *_live_*)
+      printf 'live'
+      ;;
+    *)
+      printf 'unknown'
+      ;;
+  esac
+}
+
+validate_authorized_parties() {
+  local value="$1"
+  local required_origin="$2"
+  local found_any=0
+  local found_required=0
+  local part
+
+  IFS=',' read -r -a parts <<< "$value"
+  for part in "${parts[@]}"; do
+    part="$(trim_env_value "$part")"
+    if [ -z "$part" ]; then
+      continue
+    fi
+
+    found_any=1
+    validate_http_url "CLERK_AUTHORIZED_PARTIES" "$part"
+    if [ "$part" = "$required_origin" ]; then
+      found_required=1
+    fi
+  done
+
+  if [ "$found_any" -ne 1 ]; then
+    echo "[deploy] CLERK_AUTHORIZED_PARTIES must contain at least one origin" >&2
+    exit 1
+  fi
+
+  if [ "$found_required" -ne 1 ]; then
+    echo "[deploy] CLERK_AUTHORIZED_PARTIES must include NEXT_PUBLIC_APP_URL ($required_origin)" >&2
+    exit 1
+  fi
+}
+
+validate_jwt_public_key() {
+  local value="$1"
+
+  if [[ "$value" != *"BEGIN PUBLIC KEY"* ]]; then
+    echo "[deploy] CLERK_JWT_KEY must contain a PEM public key. Copy the full Clerk JWT public key including the BEGIN/END lines." >&2
+    exit 1
+  fi
+}
+
+validate_runtime_env_contract() {
+  local next_public_app_url
+  local clerk_authorized_parties
+  local clerk_publishable_key
+  local clerk_secret_key
+  local clerk_jwt_key
+
+  next_public_app_url="$(require_runtime_env "NEXT_PUBLIC_APP_URL")"
+  validate_http_url "NEXT_PUBLIC_APP_URL" "$next_public_app_url"
+
+  clerk_authorized_parties="$(require_runtime_env "CLERK_AUTHORIZED_PARTIES")"
+  validate_authorized_parties "$clerk_authorized_parties" "$next_public_app_url"
+
+  clerk_publishable_key="$(require_runtime_env "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY")"
+  validate_clerk_publishable_key "$clerk_publishable_key"
+
+  clerk_secret_key="$(require_runtime_env "CLERK_SECRET_KEY")"
+  validate_clerk_secret_key "$clerk_secret_key"
+
+  if [ "$(clerk_key_family "$clerk_publishable_key")" != "$(clerk_key_family "$clerk_secret_key")" ]; then
+    echo "[deploy] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY must both be test keys or both be live keys. Copy both values from the same staging Clerk app." >&2
+    exit 1
+  fi
+
+  clerk_jwt_key="$(require_runtime_env "CLERK_JWT_KEY")"
+  validate_jwt_public_key "$clerk_jwt_key"
+}
+
 env_upsert() {
   local key="$1"
   local value="$2"
@@ -289,6 +453,7 @@ trap 'rc=$?; trap - EXIT; cleanup "$rc"; exit "$rc"' EXIT
 
 load_compose_env
 resolve_runtime_env_file
+validate_runtime_env_contract
 DATABASE_ENABLED="$(parse_boolean "DATABASE_ENABLED" "$(env_get "DATABASE_ENABLED" "$RUNTIME_ENV_FILE")")"
 
 CURRENT_TAG="${IMAGE_TAG:-}"

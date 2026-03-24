@@ -172,3 +172,90 @@
 - Detail: Git Bash syntax validation succeeded for infra/scripts/deploy_remote.sh.
 - Detail: Git Bash syntax validation for infra/scripts/rollback_remote.sh could not complete on this host because bash.exe hit the repo's known Windows signal-pipe error, so rollback validation is limited to mirrored diff review plus the successful deploy script syntax check.
 
+
+### 2026-03-24T14:10:30Z | request | User requested end-to-end review of repeated staging deploy error and asked whether this is one persistent failure or a series of failures.
+- Status: captured
+- Detail: Current deploy log shows container health stuck in starting state and repeated instrumentation-hook failure for NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY format validation.
+
+
+### 2026-03-24T14:16:59Z | discovery | Staging Clerk was never provisioned.
+- Status: captured
+- Detail: User confirmed only the development Clerk side was configured during prior setup/testing.
+- Detail: This explains why the staging deploy reached runtime and then failed env validation for NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.
+
+
+### 2026-03-24T14:17:05Z | change | Added fail-fast staging Clerk/runtime validation before service replacement.
+- Status: captured
+- Detail: Updated .github/workflows/deploy-staging.yml to validate Clerk keys, JWT key, app URL, and authorized parties before build/push.
+- Detail: Updated infra/scripts/deploy_remote.sh and infra/scripts/rollback_remote.sh to validate the transferred runtime auth contract before compose pull/up.
+- Detail: Updated docs/rebuild/phase-7-ci-cd-pipeline.md to record the missing staging Clerk prerequisite and the new validation rail.
+
+
+### 2026-03-24T14:17:12Z | verify | Validated the new staging Clerk/runtime guardrails locally.
+- Status: captured
+- Detail: git diff --check reported only expected Windows CRLF warnings and no whitespace errors.
+- Detail: Git Bash syntax validation passed for infra/scripts/deploy_remote.sh.
+- Detail: Git Bash syntax validation for infra/scripts/rollback_remote.sh hit the repo's known Windows signal-pipe host issue, so rollback verification is based on mirrored diff review plus identical validation logic structure.
+- Detail: A local PowerShell execution of the new workflow-side validation logic passed with representative staging-shaped inputs.
+
+
+### 2026-03-24T14:17:20Z | manual-action | Operator must provision Clerk for staging before rerunning deploy.
+- Status: captured
+- Detail: Create/configure the staging Clerk application and domain for staging.mecplans101.com.
+- Detail: Populate GitHub staging secrets NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, and CLERK_JWT_KEY from that staging Clerk setup.
+- Detail: Re-run Deploy Staging; the workflow will now fail early if those Clerk values are missing, quoted, or mismatched.
+
+
+### 2026-03-24T14:34:17Z | request | Review latest staging Clerk failure and prepare operator-facing fix instructions
+- Status: captured
+- Detail: User provided a staging deploy log showing runtime failure on NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY validation.
+- Detail: Need to confirm whether the repo already contains a fix and produce non-developer steps to correct the staging Clerk configuration.
+
+
+### 2026-03-24T14:34:49Z | discovery | Latest failed deploy ran without the local Clerk guardrail patch
+- Status: captured
+- Detail: Git status shows local edits in deploy-staging workflow, deploy/rollback scripts, and Phase 7 docs that add fail-fast Clerk/runtime validation.
+- Detail: The failed staging deploy used commit f6ffdfec9b5788d640fba95935b6e19726f13b88, so GitHub Actions did not yet include these local-only changes.
+- Detail: The runtime error remains a configuration failure: staging runtime received an invalid NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY value rather than a real pk_test_ or pk_live_ key.
+
+
+### 2026-03-24T14:36:44Z | change | Added staging Clerk operator runbook and clearer validation guidance
+- Status: captured
+- Detail: Created docs/rebuild/staging-clerk-recovery.md with plain-language steps for Clerk dashboard setup, GitHub staging secret updates, and validation checks.
+- Detail: Updated docs/rebuild/phase-7-ci-cd-pipeline.md to point operators to the dedicated staging Clerk recovery guide.
+- Detail: Clarified Clerk validation errors in deploy-staging workflow, remote deploy/rollback scripts, and web/lib/env/server.ts so future failures tell the operator to use real staging Clerk values without quotes.
+
+
+### 2026-03-24T14:38:39Z | verify | Verified staging Clerk recovery updates and recorded remaining local-only requirement
+- Status: captured
+- Detail: npm run lint -- lib/env/server.ts passed in c:\\Dev\\Repos\\app\\web after the runtime-message update.
+- Detail: git diff --check reported only expected Windows CRLF warnings and no whitespace errors.
+- Detail: bash -n verification for deploy_remote.sh and rollback_remote.sh could not run on this host because /bin/bash is unavailable, so shell verification is limited to mirrored diff review and message-only edits on top of the existing guardrail patch.
+- Detail: The fail-fast Clerk validation and new operator runbook are still local working-tree changes until they are committed and pushed before the next staging deploy.
+
+
+### 2026-03-24T14:58:18Z | request | Analyze latest staging deploy ingress probe failure
+- Status: captured
+- Detail: User provided staging deploy output where deploy_remote.sh pulled and recreated the container, then failed health probing with curl timeouts to 0.0.0.1:443 on /api/health.
+- Detail: Reviewing the committed staging workflow, remote deploy script, compose healthcheck, and existing rebuild-log history to isolate whether this is an app failure, ingress failure, or bad probe configuration.
+
+
+### 2026-03-24T14:58:47Z | discovery | Staging deploy probe failure points to bad ingress probe IP override
+- Status: captured
+- Detail: infra/scripts/deploy_remote.sh defaults PROBE_IP to 127.0.0.1 and uses curl --resolve STAGING_WEB_HOST:PROBE_PORT:PROBE_IP for ingress probes.
+- Detail: .github/workflows/deploy-staging.yml forwards the optional GitHub variable STAGING_PROBE_IP into PROBE_IP only when that variable is non-empty.
+- Detail: Repo search found no literal 0.0.0.1, so the observed curl target 0.0.0.1:443 is most likely coming from an external staging variable/manual export rather than source-controlled defaults.
+- Detail: Because the log reached container recreation, start, and probe attempts, the failure is later than image pull/container startup and is specifically the ingress health check target.
+
+
+### 2026-03-24T14:58:56Z | verify | Repo-side verification completed for ingress probe failure analysis
+- Status: captured
+- Detail: Confirmed current staged compose file defines an internal container healthcheck against http://127.0.0.1:/api/health, which is separate from the failing host-level ingress probe to https://STAGING_WEB_HOST via curl --resolve.
+- Detail: Confirmed staging/compose.env only carries STAGING_WEB_HOST and no probe IP override, so repo-side deploy defaults do not explain a 0.0.0.1 target.
+- Detail: Verification is limited to source inspection and log correlation because this session cannot SSH into the staging host or read GitHub environment variables directly.
+
+
+### 2026-03-24T14:59:11Z | discovery | Correction: staging compose healthcheck remains container-local on port 3000
+- Status: captured
+- Detail: The staging compose file healthcheck uses wget against http://127.0.0.1:3000/api/health inside the container, reinforcing that the observed failure is not the container-local healthcheck path but the separate host-level ingress probe.
+

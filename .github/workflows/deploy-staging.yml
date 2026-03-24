@@ -104,6 +104,108 @@ jobs:
           else:
               print("DATABASE_ENABLED=false; skipping staging DB URL validation.")
           PY
+
+      - name: Validate staging app auth/runtime contract
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          CLERK_AUTHORIZED_PARTIES: ${{ vars.CLERK_AUTHORIZED_PARTIES }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_JWT_KEY: ${{ secrets.CLERK_JWT_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          def require(name: str) -> str:
+              value = os.environ.get(name, "").strip()
+              if not value:
+                  raise SystemExit(f"GitHub staging setting {name} is required")
+              return value
+
+          def reject_wrapping_quotes(name: str, value: str) -> None:
+              if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must be stored without wrapping quotes. Paste the raw value only."
+                  )
+
+          def validate_http_url(name: str, value: str) -> str:
+              reject_wrapping_quotes(name, value)
+              parsed = urlparse(value)
+              if parsed.scheme not in {"http", "https"}:
+                  raise SystemExit(f"GitHub staging setting {name} must use http:// or https://")
+              if not parsed.netloc:
+                  raise SystemExit(f"GitHub staging setting {name} must include a hostname")
+              return value
+
+          def validate_clerk_key(name: str, value: str, prefixes: tuple[str, ...]) -> str:
+              reject_wrapping_quotes(name, value)
+              if not value.startswith(prefixes):
+                  prefix_list = " or ".join(prefixes)
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must start with {prefix_list}. Copy the real value from the staging Clerk app and store it without quotes."
+                  )
+              return value
+
+          def clerk_key_family(name: str, value: str) -> str:
+              if "_test_" in value:
+                  return "test"
+              if "_live_" in value:
+                  return "live"
+              raise SystemExit(
+                  f"GitHub staging setting {name} is not a recognizable Clerk key"
+              )
+
+          app_url = validate_http_url("NEXT_PUBLIC_APP_URL", require("NEXT_PUBLIC_APP_URL"))
+          authorized_parties = require("CLERK_AUTHORIZED_PARTIES")
+
+          seen_required_origin = False
+          seen_any_authorized_party = False
+          for raw_part in authorized_parties.split(","):
+              part = raw_part.strip()
+              if not part:
+                  continue
+              seen_any_authorized_party = True
+              validate_http_url("CLERK_AUTHORIZED_PARTIES", part)
+              if part == app_url:
+                  seen_required_origin = True
+
+          if not seen_any_authorized_party:
+              raise SystemExit(
+                  "GitHub staging setting CLERK_AUTHORIZED_PARTIES must contain at least one origin"
+              )
+
+          if not seen_required_origin:
+              raise SystemExit(
+                  "GitHub staging setting CLERK_AUTHORIZED_PARTIES must include NEXT_PUBLIC_APP_URL"
+              )
+
+          publishable_key = validate_clerk_key(
+              "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+              require("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
+              ("pk_test_", "pk_live_"),
+          )
+          secret_key = validate_clerk_key(
+              "CLERK_SECRET_KEY",
+              require("CLERK_SECRET_KEY"),
+              ("sk_test_", "sk_live_"),
+          )
+
+          if clerk_key_family("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", publishable_key) != clerk_key_family(
+              "CLERK_SECRET_KEY", secret_key
+          ):
+              raise SystemExit(
+                  "GitHub staging settings NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY must both be test keys or both be live keys. Copy both values from the same staging Clerk app."
+              )
+
+          jwt_key = require("CLERK_JWT_KEY").replace("\\n", "\n")
+          if "BEGIN PUBLIC KEY" not in jwt_key:
+              raise SystemExit(
+                  "GitHub staging setting CLERK_JWT_KEY must contain a PEM public key. Copy the full Clerk JWT public key including the BEGIN/END lines."
+              )
+
+          print("Staging auth/runtime values validated.")
+          PY
       
       - name: Build and push image
         uses: docker/build-push-action@v6

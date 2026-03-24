@@ -382,6 +382,7 @@ Decision:
 
 Expected pass behavior:
 - workflow fails if image build/push fails
+- workflow fails before build/push if staging Clerk/app runtime values are missing or malformed
 - workflow fails if remote migration fails
 - workflow fails if remote health/readiness checks fail
 - successful deploy results in a new staging image tag equal to the commit SHA
@@ -427,12 +428,14 @@ Observed during live staging recovery:
 - SSH transport issues were resolved first by refreshing `STAGING_SSH_KNOWN_HOSTS` and `STAGING_SSH_PRIVATE_KEY`
 - the deploy then reached the staging host and pulled the target image successfully
 - the next failure happened in the explicit migration step because the real Phase 6 staging DB had not actually been stood up on the server yet
+- a later deploy reached container startup and failed in `web/instrumentation.ts` because staging Clerk itself had never been provisioned; only the local/dev Clerk side had been configured so the staging GitHub Clerk secrets could not yet be valid
 
 Decision:
 
 - preserve the phase boundary: staging DB bring-up is still Phase 6 work
 - Phase 7 must still be able to validate CI publish, SSH transport, remote script copy, compose update, service restart, and readiness probes while `DATABASE_ENABLED=false`
 - explicit DB migration remains required only when `DATABASE_ENABLED=true`
+- staging deploy is also blocked on a real Clerk staging application and staging-domain configuration; Phase 7 cannot prove health until those human-side Clerk steps exist
 
 Deploy rail correction:
 
@@ -440,6 +443,8 @@ Deploy rail correction:
 - when `DATABASE_ENABLED=true`, the remote deploy still runs `node ./scripts/db-migrate.mjs`
 - when `DATABASE_ENABLED=false`, the remote deploy skips the explicit migration step and continues with service recreation plus probes
 - the GitHub staging workflow now validates DB URL secrets only when `DATABASE_ENABLED=true`
+- the GitHub staging workflow also validates Clerk/app runtime values before build/push so malformed staging secrets fail in CI instead of after container recreation
+- `deploy_remote.sh` and `rollback_remote.sh` now validate the transferred runtime auth contract before `compose pull` and `compose up`
 
 Temporary pass condition until Phase 6 closeout:
 
@@ -455,3 +460,11 @@ Phase 6 handoff required before re-enabling DB mode:
 - create the runtime, migrate, and backup users
 - store the real DB URLs in GitHub `staging` secrets
 - switch GitHub `staging` `DATABASE_ENABLED=true`
+
+Staging Clerk handoff required before auth-backed deploy can pass:
+
+- follow the plain-language operator steps in `docs/rebuild/staging-clerk-recovery.md`
+- create/configure the Clerk staging application for `staging.mecplans101.com`
+- activate/configure the staging Clerk domain and related redirects
+- copy the staging Clerk publishable key, secret key, and JWT key into the GitHub `staging` environment
+- keep staging Clerk settings in sync manually with production-facing Clerk changes because Clerk does not auto-mirror a separate staging app

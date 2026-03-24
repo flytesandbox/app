@@ -96,7 +96,7 @@ function readAuthorizedParties(
 function validateClerkPublishableKey(value: string): string {
   if (!value.startsWith('pk_test_') && !value.startsWith('pk_live_')) {
     throw new Error(
-      '[env/server] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must start with pk_test_ or pk_live_',
+      '[env/server] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must start with pk_test_ or pk_live_. Use the real Clerk publishable key for this environment and do not wrap it in quotes.',
     )
   }
 
@@ -106,7 +106,7 @@ function validateClerkPublishableKey(value: string): string {
 function validateClerkSecretKey(value: string): string {
   if (!value.startsWith('sk_test_') && !value.startsWith('sk_live_')) {
     throw new Error(
-      '[env/server] CLERK_SECRET_KEY must start with sk_test_ or sk_live_',
+      '[env/server] CLERK_SECRET_KEY must start with sk_test_ or sk_live_. Use the real Clerk secret key for this environment and do not wrap it in quotes.',
     )
   }
 
@@ -118,7 +118,7 @@ function validateClerkJwtKey(value: string): string {
 
   if (!normalized.includes('BEGIN PUBLIC KEY')) {
     throw new Error(
-      '[env/server] CLERK_JWT_KEY must contain a PEM public key',
+      '[env/server] CLERK_JWT_KEY must contain a PEM public key. Copy the full Clerk JWT public key including the BEGIN/END lines.',
     )
   }
 
