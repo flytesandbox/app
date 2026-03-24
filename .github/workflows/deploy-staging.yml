@@ -80,6 +80,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import posixpath
           from urllib.parse import urlparse
 
           LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0", "0.0.0.1", "host.docker.internal"}
@@ -145,6 +146,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import posixpath
           from urllib.parse import urlparse
 
           LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0", "0.0.0.1", "host.docker.internal"}
@@ -168,6 +170,19 @@ jobs:
                   raise SystemExit(f"GitHub staging setting {name} must use http:// or https://")
               if not parsed.netloc:
                   raise SystemExit(f"GitHub staging setting {name} must include a hostname")
+              return value
+
+          def validate_absolute_path(name: str, value: str) -> str:
+              reject_wrapping_quotes(name, value)
+              if not value.startswith("/"):
+                  raise SystemExit(f"GitHub staging setting {name} must be an absolute path")
+
+              normalized = posixpath.normpath(value)
+              if normalized != value:
+                  raise SystemExit(
+                      f"GitHub staging setting {name} must be stored as the canonical path without trailing slashes or dot segments; use {normalized}"
+                  )
+
               return value
 
           def validate_staging_origin(name: str, value: str, expected_host: str) -> str:
@@ -215,9 +230,13 @@ jobs:
           if require("APP_ENV") != "staging":
               raise SystemExit("GitHub staging setting APP_ENV must equal staging")
 
-          if require("STAGING_DEPLOY_PATH") != "/app/staging":
+          staging_deploy_path = validate_absolute_path(
+              "STAGING_DEPLOY_PATH",
+              require("STAGING_DEPLOY_PATH"),
+          )
+          if staging_deploy_path != "/app/staging":
               raise SystemExit(
-                  "GitHub staging setting STAGING_DEPLOY_PATH must equal /app/staging"
+                  f"GitHub staging setting STAGING_DEPLOY_PATH must equal /app/staging; found {staging_deploy_path}"
               )
 
           staging_web_host = require("STAGING_WEB_HOST")

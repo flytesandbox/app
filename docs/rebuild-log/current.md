@@ -363,3 +363,32 @@
 - Status: captured
 - Detail: Include web/.env.example in the next commit now that web/.gitignore no longer excludes it. Without that file in git, GitHub Actions will still not have the local environment example available to audit.
 
+
+### 2026-03-24T15:45:03Z | request | Investigating staging deploy validation failure for STAGING_DEPLOY_PATH.
+- Status: captured
+- Detail: Reviewing workflow, compose examples, and deploy scripts to determine whether /app/staging is the correct enforced path or whether the validation should be aligned to existing infrastructure conventions.
+
+
+### 2026-03-24T15:46:36Z | discovery | Confirmed STAGING_DEPLOY_PATH mismatch is an external GitHub vars issue, not a repo inconsistency.
+- Status: captured
+- Detail: deploy-staging.yml, deploy_remote.sh, rollback_remote.sh, staging compose assets, and rebuild docs all pin the staging rail to /app/staging.
+- Detail: Because the workflow reads vars.STAGING_DEPLOY_PATH, the offending value may be coming from the staging environment, repository variables, or organization variables.
+
+
+### 2026-03-24T15:46:57Z | change | Improved staging deploy path validation diagnostics in deploy-staging workflow.
+- Status: captured
+- Detail: Added absolute-path and canonical-path validation for STAGING_DEPLOY_PATH in the workflow guardrail step.
+- Detail: Mismatch errors now report the resolved path value so the operator can identify the wrong GitHub variable source more quickly.
+
+
+### 2026-03-24T15:47:14Z | verify | Verified updated staging deploy path diagnostics in workflow.
+- Status: captured
+- Detail: Corrected missing posixpath import in the inline Python validator.
+- Detail: git diff --check reports only existing line-ending warnings for deploy-staging.yml; no whitespace errors were introduced.
+
+
+### 2026-03-24T15:47:24Z | manual-action | Operator follow-up for STAGING_DEPLOY_PATH mismatch.
+- Status: captured
+- Detail: Check GitHub Variables at the staging environment, repository, and organization scopes for STAGING_DEPLOY_PATH. The workflow received a non-empty value that is not /app/staging.
+- Detail: Set STAGING_DEPLOY_PATH to /app/staging exactly, with no quotes, no trailing slash, and no alternate staging root unless the repo scripts/docs are deliberately updated together.
+
