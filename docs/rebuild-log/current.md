@@ -739,3 +739,24 @@
 - Detail: The local DB bootstrap path now passes with Docker running.
 - Detail: The staging workflow triggers on pushes to main, so the remaining Phase 9 step is to package the validated worktree and push it to origin.
 
+
+### 2026-03-24T18:32:06Z | change | Phase 8 and Phase 9 rebuild baseline committed and pushed
+- Status: captured
+- Detail: Created commit 831f9c8 (Complete Phase 8 observability and Phase 9 base app rebuild).
+- Detail: Pushed 831f9c8 to origin/main, which triggered the Deploy Staging workflow.
+
+
+### 2026-03-24T18:32:13Z | verify | Phase 9 staging deployment succeeded
+- Status: captured
+- Detail: GitHub Actions Deploy Staging run 30 for commit 831f9c8 completed successfully on 2026-03-24.
+- Detail: The live staging homepage at https://staging.mecplans101.com returned HTTP 200 and served the MEC Plans Base App landing page.
+- Detail: /api/health returned HTTP 200 with releaseGitSha 831f9c8397c18bb4997275dd6a4caaa7452db058.
+- Detail: /api/ready returned HTTP 200 with checks env=ok and database=skipped.
+- Detail: /api/release returned HTTP 200 with releaseDeployedAt 2026-03-24T18:30:03Z.
+
+
+### 2026-03-24T18:32:19Z | risk | Staging is live for UI review but still running without DB-backed workflow persistence
+- Status: captured
+- Detail: The deployed staging ready check reported database=skipped, which indicates DATABASE_ENABLED=false in the current staging runtime.
+- Detail: Phase 9 UI/UX review can proceed against the public surface and shell/application layouts, but saved draft and reviewer mutation behavior are not yet staging-live.
+
