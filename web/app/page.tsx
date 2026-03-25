@@ -7,7 +7,7 @@ export default function Home() {
       <section className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
         <div className="rounded-[2rem] border border-black/8 bg-[color:var(--surface)] p-8 shadow-[0_24px_80px_rgba(60,39,18,0.09)] md:p-10">
           <div className="mb-6 inline-flex rounded-full border border-[color:var(--accent)]/20 bg-[color:var(--accent)]/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
-            Base App For UI/UX Review
+            Application Experience Review
           </div>
 
           <div className="space-y-4">
@@ -15,10 +15,10 @@ export default function Home() {
               A cleaner front door for the next MEC Plans application cycle.
             </h1>
             <p className="max-w-2xl text-base leading-7 text-[color:var(--muted)] md:text-lg">
-              Phase 9 moves the project from an identity shell into a real base
-              application: a public entry experience, a signed-in application
-              workspace, and an internal review queue that can be pushed to
-              staging for real UX evaluation.
+              MEC Plans now presents a public entry experience, a signed-in
+              application workspace, and an internal review queue that can be
+              evaluated in staging without falling back to placeholder proof
+              screens.
             </p>
           </div>
 
@@ -66,7 +66,7 @@ export default function Home() {
               <li>Public-facing landing and application start surface</li>
               <li>Tenant application draft and review flow</li>
               <li>Internal queue visibility for review staff</li>
-              <li>Existing release and health visibility from Phase 8</li>
+              <li>Existing release and health visibility</li>
             </ul>
           </div>
 
@@ -81,7 +81,7 @@ export default function Home() {
             <p className="mt-3 text-sm leading-6 text-white/70">
               Reviewers should be able to judge the clarity of the landing
               page, the dashboard, the draft workflow, and the internal queue
-              without falling back to phase-only proof screens.
+              without falling back to implementation-only proof screens.
             </p>
           </div>
         </aside>
@@ -93,7 +93,7 @@ export default function Home() {
             eyebrow: 'Public',
             title: 'Intentional first impression',
             copy:
-              'The base app now introduces the experience directly instead of exposing a raw phase shell.',
+              'The application now introduces the experience directly instead of exposing a raw placeholder shell.',
           },
           {
             eyebrow: 'Tenant',

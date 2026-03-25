@@ -1,0 +1,63 @@
+# Support Evidence Log
+
+## Purpose
+
+This directory holds the operator-facing evidence stream that seeds the `Support` service.
+
+It exists to capture:
+
+- repo-side findings
+- server-side findings
+- user-reported errors
+- questions and decisions
+- code and doc changes
+- validation results
+- manual follow-up actions
+
+The path name stays `docs/support/evidence/` for repo continuity, but its active
+purpose is ecosystem evidence capture for logging, recovery, compliance review,
+and operational reporting.
+
+This logging path is intentionally isolated from app runtime and deployment
+infra.
+
+## Canonical Files
+
+- `current.md` is the active append-only evidence stream
+- `tools/append-entry.ps1` appends timestamped entries without touching app code or infra rails
+- `tools/archive-current.ps1` archives a finished `current.md` stream and creates a fresh append target
+
+## Logging Rules
+
+- log before or after every meaningful ecosystem or support action
+- redact secrets, passwords, private keys, full DB URLs, fingerprints, and private IPs
+- record the file or system area involved when possible
+- keep entries factual and short enough to scan later
+- active entries must describe current-state operations, not revive retired scaffolding or launch mechanics
+
+## Append Command
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\docs\support\evidence\tools\append-entry.ps1 `
+  -Type discovery `
+  -Summary "Deploy verification failed in database migration" `
+  -Details "Remote deploy script still forced migrations even though DATABASE_ENABLED=false is a valid preview-mode contract."
+```
+
+## Session Handling
+
+- keep appending to `current.md` while the same operating stream is active
+- when a stream is fully closed, archive `current.md` into a dated file and start a fresh `current.md`
+
+## Archive Command
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\docs\support\evidence\tools\archive-current.ps1
+```
+
+Optional parameters:
+
+- `-CurrentLogPath` to archive a non-default log file
+- `-ArchiveDir` to choose a non-default archive directory
+- `-ArchiveName` to force a specific archive filename
+- `-Force` to overwrite an existing archive target

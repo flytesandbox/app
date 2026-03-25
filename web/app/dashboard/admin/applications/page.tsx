@@ -74,9 +74,8 @@ export default async function DashboardAdminApplicationsPage({
         </p>
         <h1 className="mt-4 text-4xl">Admin applications</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--muted)]">
-          The queue now reflects the first real Phase 9 application slice. This
-          is where reviewers can see recent tenant work and move it through the
-          next decision.
+          This queue is where reviewers can see recent tenant work and move it
+          through the next decision.
         </p>
       </section>
 

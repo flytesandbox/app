@@ -10,7 +10,7 @@ import './globals.css'
 
 export const metadata = {
   title: 'MEC Plans Base App',
-  description: 'Base application for Phase 9 UI and workflow testing.',
+  description: 'MEC Plans application workspace and review experience.',
 }
 
 function AppHeader() {
@@ -22,7 +22,7 @@ function AppHeader() {
             MEC Plans
           </Link>
           <p className="text-sm text-[color:var(--muted)]">
-            Phase 9 base application
+            Application workspace
           </p>
         </div>
 
@@ -33,8 +33,8 @@ function AppHeader() {
           <Link href="/dashboard" className="rounded-full border border-black/10 bg-white/70 px-4 py-2">
             Workspace
           </Link>
-          <Link href="/api/release" className="rounded-full border border-black/10 bg-white/70 px-4 py-2">
-            Release
+          <Link href="/release" className="rounded-full border border-black/10 bg-white/70 px-4 py-2">
+            Release Status
           </Link>
         </nav>
 

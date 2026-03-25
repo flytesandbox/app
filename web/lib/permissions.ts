@@ -1,5 +1,5 @@
 // web/lib/permissions.ts
-// Canonical policy map for Phase 5.
+// Canonical policy map for application roles and permissions.
 // If roles or permissions change, update this file first.
 
 export const ROLES = [

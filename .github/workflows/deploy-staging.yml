@@ -467,3 +467,10 @@ jobs:
           chmod +x '${{ vars.STAGING_DEPLOY_PATH }}/deploy_remote.sh' '${{ vars.STAGING_DEPLOY_PATH }}/rollback_remote.sh'
           bash '${{ vars.STAGING_DEPLOY_PATH }}/deploy_remote.sh' '${{ github.sha }}' '${{ github.sha }}'
           EOF
+
+      - name: Verify live staging release gates
+        env:
+          RELEASE_GATE_BASE_URL: https://${{ vars.STAGING_WEB_HOST }}
+          EXPECTED_RELEASE_GIT_SHA: ${{ github.sha }}
+          EXPECTED_RELEASE_IMAGE_TAG: ${{ github.sha }}
+        run: node web/scripts/verify-release-gates.mjs

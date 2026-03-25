@@ -1,0 +1,95 @@
+name: Rollback Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollback_tag:
+        description: Optional image tag to roll back to. Leave blank to use the previous recorded good tag.
+        required: false
+        type: string
+
+concurrency:
+  group: staging-rollback
+  cancel-in-progress: false
+
+jobs:
+  rollback-staging:
+    name: Roll back staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      STAGING_DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+      STAGING_WEB_HOST: ${{ vars.STAGING_WEB_HOST }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Prepare SSH
+        env:
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$STAGING_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$STAGING_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Copy rollback script to server
+        env:
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+        run: |
+          scp -i ~/.ssh/id_ed25519 -P "$STAGING_SSH_PORT" \
+            infra/scripts/rollback_remote.sh \
+            "$STAGING_SSH_USER@$STAGING_SSH_HOST:$STAGING_DEPLOY_PATH/rollback_remote.sh"
+
+      - name: Run remote rollback
+        env:
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+          STAGING_PROBE_SCHEME: ${{ vars.STAGING_PROBE_SCHEME }}
+          STAGING_PROBE_PORT: ${{ vars.STAGING_PROBE_PORT }}
+          STAGING_PROBE_IP: ${{ vars.STAGING_PROBE_IP }}
+          STAGING_PROBE_CONNECT_TIMEOUT: ${{ vars.STAGING_PROBE_CONNECT_TIMEOUT }}
+          STAGING_PROBE_MAX_TIME: ${{ vars.STAGING_PROBE_MAX_TIME }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "$STAGING_SSH_PORT" \
+            "$STAGING_SSH_USER@$STAGING_SSH_HOST" <<EOF
+          set -Eeuo pipefail
+          export GHCR_USERNAME='${{ github.actor }}'
+          export GHCR_TOKEN='${{ secrets.GITHUB_TOKEN }}'
+          export GIT_SHA='${{ github.sha }}'
+          export APP_ROOT='${{ vars.STAGING_DEPLOY_PATH }}'
+          export INPUT_ROLLBACK_TAG='${{ inputs.rollback_tag }}'
+          unset PROBE_SCHEME PROBE_PORT PROBE_IP PROBE_CONNECT_TIMEOUT PROBE_MAX_TIME
+          [ -n "${STAGING_PROBE_SCHEME:-}" ] && export PROBE_SCHEME="$STAGING_PROBE_SCHEME"
+          [ -n "${STAGING_PROBE_PORT:-}" ] && export PROBE_PORT="$STAGING_PROBE_PORT"
+          [ -n "${STAGING_PROBE_IP:-}" ] && export PROBE_IP="$STAGING_PROBE_IP"
+          [ -n "${STAGING_PROBE_CONNECT_TIMEOUT:-}" ] && export PROBE_CONNECT_TIMEOUT="$STAGING_PROBE_CONNECT_TIMEOUT"
+          [ -n "${STAGING_PROBE_MAX_TIME:-}" ] && export PROBE_MAX_TIME="$STAGING_PROBE_MAX_TIME"
+          chmod +x '${{ vars.STAGING_DEPLOY_PATH }}/rollback_remote.sh'
+          if [ -n "${INPUT_ROLLBACK_TAG:-}" ]; then
+            bash '${{ vars.STAGING_DEPLOY_PATH }}/rollback_remote.sh' "$INPUT_ROLLBACK_TAG"
+          else
+            bash '${{ vars.STAGING_DEPLOY_PATH }}/rollback_remote.sh'
+          fi
+          EOF
+
+      - name: Verify live staging release gates
+        env:
+          RELEASE_GATE_BASE_URL: https://${{ vars.STAGING_WEB_HOST }}
+        run: node web/scripts/verify-release-gates.mjs

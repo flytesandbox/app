@@ -1,11 +1,12 @@
 # Agent Workflow
 
-## Rebuild Logging
+## Support Evidence
 
-For rebuild, phase, staging, deployment, infrastructure, or recovery work:
+For staging, deployment, infrastructure, recovery, support, or ecosystem
+maintenance work:
 
-- append entries to `docs/rebuild-log/current.md`
-- use `docs/rebuild-log/tools/append-entry.ps1` when shell access is available
+- append entries to `docs/support/evidence/current.md`
+- use `docs/support/evidence/tools/append-entry.ps1` when shell access is available
 - log the request, each material finding, each repo change, each validation result, each blocker, and each manual action handed to the user
 
 Minimum logging cadence for non-trivial work:
@@ -22,7 +23,7 @@ Redaction rules:
 
 Isolation rule:
 
-- keep rebuild logging under `docs/rebuild-log/`
-- do not wire rebuild-log tooling into app runtime, package scripts, CI deploy behavior, or compose files
+- keep support evidence under `docs/support/evidence/`
+- do not wire support-evidence tooling into app runtime, package scripts, CI deploy behavior, or compose files
 
 If the user explicitly tells you not to log a task, follow the user instruction for that task.

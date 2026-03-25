@@ -8,6 +8,7 @@ import {
   logObservedEvent,
   withObservedRoute,
 } from '@/lib/observability/http'
+import { getReleaseGateSnapshot } from '@/lib/observability/release-gates'
 import { getReleaseMetadata } from '@/lib/observability/release'
 
 export const GET = withObservedRoute('api.ready.get', async (_request, ctx) => {
@@ -31,6 +32,8 @@ export const GET = withObservedRoute('api.ready.get', async (_request, ctx) => {
     })
   }
 
+  const releaseGate = getReleaseGateSnapshot(env, release)
+
   if (!env.databaseEnabled) {
     logObservedEvent('info', 'readiness.database_skipped', ctx)
 
@@ -38,6 +41,7 @@ export const GET = withObservedRoute('api.ready.get', async (_request, ctx) => {
       ok: true,
       status: 'ready',
       release,
+      releaseGate,
       checks: {
         env: 'ok',
         database: 'skipped',
@@ -53,6 +57,7 @@ export const GET = withObservedRoute('api.ready.get', async (_request, ctx) => {
       ok: true,
       status: 'ready',
       release,
+      releaseGate,
       checks: {
         env: 'ok',
         database: 'ok',
@@ -66,6 +71,7 @@ export const GET = withObservedRoute('api.ready.get', async (_request, ctx) => {
       status: 'not-ready',
       reason: 'database_not_ready',
       release,
+      releaseGate,
       checks: {
         env: 'ok',
         database: 'failed',

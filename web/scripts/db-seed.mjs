@@ -215,7 +215,7 @@ async function main() {
           seed_label: 'local_fake_audit_event',
           related_employer_tenant_id: fakeEmployerTenantId,
           related_advisor_tenant_id: fakeAdvisorTenantId,
-          description: 'Local-only fake audit event for Phase 6 seed validation.',
+          description: 'Local-only fake audit event for seed validation.',
         }),
       ],
     )

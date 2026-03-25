@@ -1,7 +1,16 @@
 # app
 
-Phase 9 turns the repo from a shell-first rebuild into a base application that
-can be installed locally and pushed to staging for UI/UX review.
+This repo now treats the application, the ecosystem Wiki, and the `Support`
+logging/monitoring service as separate but bounded parts of one system.
+
+Active source-of-truth docs:
+
+- `docs/wiki/README.md`
+- `docs/wiki/architecture/ecosystem-overview.md`
+- `docs/support/README.md`
+- `docs/support/install.md`
+
+Support-generated records live under `docs/wiki/archive/support-generated/`.
 
 ## Local bootstrap
 
@@ -24,6 +33,9 @@ Bootstrap sequence:
 
 The local DB runs on `127.0.0.1:3307` and is intentionally local-only.
 
+`docs/support/evidence/` is the live operator-evidence path used by `Support`
+without wiring doc tooling into runtime or deploy behavior.
+
 ## Useful checks
 
 From `web/`:
@@ -36,7 +48,7 @@ From `web/`:
 ## Staging path
 
 Staging deploys through GitHub Actions, not manual server patching. The current
-Phase 9 intent is:
+release path is:
 
 1. validate locally
 2. merge through the existing PR workflow

@@ -88,9 +88,8 @@ export default async function DashboardHomePage() {
           </p>
           <h1 className="mt-4 text-4xl">Dashboard</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--muted)]">
-            This is now the base application workspace for Phase 9. It should
-            help a reviewer understand what to do next, not just prove that the
-            shell is protected.
+            This workspace should help a reviewer understand what to do next,
+            not just prove that protected routes exist.
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">

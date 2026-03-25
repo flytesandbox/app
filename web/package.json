@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:env-boundaries": "node ./scripts/check-env-boundaries.mjs",
+    "verify:release-gates": "node ./scripts/verify-release-gates.mjs",
     "test:e2e": "playwright test",
     "db:migrate": "node ./scripts/db-migrate.mjs",
     "db:seed": "node ./scripts/db-seed.mjs",
