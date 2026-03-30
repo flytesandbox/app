@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <main className="space-y-10">
       <section className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
-        <div className="rounded-[2rem] border border-black/8 bg-[color:var(--surface)] p-8 shadow-[0_24px_80px_rgba(60,39,18,0.09)] md:p-10">
+        <div className="rounded-[2rem] border border-black/8 bg-[color:var(--surface)] p-8 shadow-[0_24px_80px_rgba(37,92,59,0.12)] md:p-10">
           <div className="mb-6 inline-flex rounded-full border border-[color:var(--accent)]/20 bg-[color:var(--accent)]/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
             Application Experience Review
           </div>
@@ -25,7 +25,7 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Show when="signed-out">
               <SignInButton mode="modal">
-                <button className="rounded-full bg-[color:var(--accent)] px-5 py-3 font-semibold text-white shadow-[0_14px_36px_rgba(127,50,21,0.18)]">
+                <button className="rounded-full bg-[color:var(--accent)] px-5 py-3 font-semibold text-white shadow-[0_14px_36px_rgba(47,122,73,0.25)]">
                   Enter the workspace
                 </button>
               </SignInButton>
@@ -35,7 +35,7 @@ export default function Home() {
               <Link
                 href="/dashboard/application"
                 prefetch={false}
-                className="rounded-full bg-[color:var(--accent)] px-5 py-3 font-semibold text-white shadow-[0_14px_36px_rgba(127,50,21,0.18)]"
+                className="rounded-full bg-[color:var(--accent)] px-5 py-3 font-semibold text-white shadow-[0_14px_36px_rgba(47,122,73,0.25)]"
               >
                 Open my application
               </Link>
@@ -58,7 +58,7 @@ export default function Home() {
         </div>
 
         <aside className="grid gap-4">
-          <div className="rounded-[1.6rem] border border-black/8 bg-[rgba(255,255,255,0.82)] p-6 shadow-[0_18px_50px_rgba(60,39,18,0.07)]">
+          <div className="rounded-[1.6rem] border border-black/8 bg-[rgba(255,255,255,0.82)] p-6 shadow-[0_18px_50px_rgba(37,92,59,0.1)]">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
               What is in scope now
             </p>
@@ -70,7 +70,7 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="rounded-[1.6rem] border border-black/8 bg-[rgba(43,35,27,0.95)] p-6 text-white shadow-[0_18px_50px_rgba(43,35,27,0.22)]">
+          <div className="rounded-[1.6rem] border border-black/8 bg-[rgba(40,88,63,0.94)] p-6 text-white shadow-[0_18px_50px_rgba(40,88,63,0.26)]">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
               Review lens
             </p>
@@ -110,7 +110,7 @@ export default function Home() {
         ].map((item) => (
           <article
             key={item.title}
-            className="rounded-[1.6rem] border border-black/8 bg-[rgba(255,250,244,0.82)] p-6 shadow-[0_16px_40px_rgba(60,39,18,0.05)]"
+            className="rounded-[1.6rem] border border-black/8 bg-[rgba(250,255,249,0.85)] p-6 shadow-[0_16px_40px_rgba(37,92,59,0.09)]"
           >
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
               {item.eyebrow}
